@@ -13,7 +13,7 @@ files <- separate(as.data.frame(files), 1, into = "files", sep = ".csv")
 
 # Load raw-ish gps data ####
 
-for (j in 1:nrow(files)) {
+for (j in 2:nrow(files)) {
   
   # j = 1
   
@@ -47,7 +47,7 @@ for (j in 1:nrow(files)) {
   # Trip IDs
   df.gps <- Give.trip.IDs(df.gps)
   
-  write_csv(df.gps, paste0("RFB_Diving_Data/CH_AxyTrek_Processed/", files[i,], "_gps.csv"))
+  write_csv(df.gps, paste0("RFB_Diving_Data/CH_AxyTrek_Processed/", files[j,], "_gps.csv"))
 
   }
 
