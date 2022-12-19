@@ -1,10 +1,18 @@
 rm(list = ls(all = TRUE))
 
-library(tidyverse)
-library(lubridate)
+library(tidyverse) # for piping etc
+library(geosphere) # for distHaversine function
+library(lubridate) # for dmy function
 library(adehabitatHR) # for interpolation
 
-# source('RFB_Diving_Scripts/Functions/TripID.R', echo=TRUE) # Function for assigning trip IDs; commented out for now
+# Function to designate Trip IDs:
+source('RFB_Diving_Scripts/Functions/TripID.R', echo=TRUE) # Function for assigning trip IDs; commented out for now
+
+# Function to extract statistical mode:
+getmode <- function(v) {
+  uniqv <- unique(na.omit(v))
+  uniqv[which.max(tabulate(match(v, uniqv)))]
+}
 
 files <- list.files(path = "RFB_Diving_Data/BIOT_CH_2022_AxyTrek/", pattern = "*.csv")
 files <- separate(as.data.frame(files), 1, into = "files", sep = ".csv")
@@ -15,7 +23,7 @@ files <- separate(as.data.frame(files), 1, into = "files", sep = ".csv")
 
 for (j in 1:nrow(files)) {
   
-  # j = 1
+  # j = 1 # use to test code
   
   # Load files
   df.gps <- read_tsv(paste0("RFB_Diving_Data/BIOT_CH_2022_AxyTrek/", files[j,], ".txt"), col_names = F) %>%
@@ -23,7 +31,7 @@ for (j in 1:nrow(files)) {
     drop_na() %>%
     dplyr::rename(Date = 1, Time = 2, Lat = 3, Lon = 4)
   
-  # df.gps <- df.gps[1:10000,]
+  # df.gps <- df.gps[1:10000,] # use to test code
   
   # Edit time format
   df.gps$Date <- dmy(df.gps$Date)
@@ -39,8 +47,13 @@ for (j in 1:nrow(files)) {
     dplyr::rename(Lon = 1, Lat = 2, Date = 3)
   
   # >1 km from colony = trip
-  df.gps$Trip <- ifelse(spDistsN1(data.matrix(df.gps[,c("Lon", "Lat")]),
-                                  as.numeric(df.gps[1,c("Lon", "Lat")]), longlat = T) > 1,
+  # Determine nest coordinates (as the most common GPS)
+  nest.coords = c(getmode(df.gps$Lon), getmode(df.gps$Lat))
+  
+  # Calc dists from nest
+  df.gps$Dist.km = distHaversine(nest.coords, cbind(df.gps$Lon, df.gps$Lat))/1000
+
+  df.gps$Trip <- ifelse(df.gps$Dist.km > 1,
                         TRUE,
                         FALSE)
   
