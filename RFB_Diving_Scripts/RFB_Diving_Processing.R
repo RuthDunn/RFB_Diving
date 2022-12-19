@@ -4,7 +4,7 @@ library(tidyverse)
 library(lubridate)
 library(adehabitatHR) # for interpolation
 
-source('RFB_Diving_Scripts/Functions/TripID.R', echo=TRUE)
+# source('RFB_Diving_Scripts/Functions/TripID.R', echo=TRUE) # Function for assigning trip IDs; commented out for now
 
 files <- list.files(path = "RFB_Diving_Data/BIOT_CH_2022_AxyTrek/", pattern = "*.csv")
 files <- separate(as.data.frame(files), 1, into = "files", sep = ".csv")
@@ -13,7 +13,7 @@ files <- separate(as.data.frame(files), 1, into = "files", sep = ".csv")
 
 # Load raw-ish gps data ####
 
-for (j in 2:nrow(files)) {
+for (j in 1:nrow(files)) {
   
   # j = 1
   
@@ -58,43 +58,22 @@ for (j in 2:nrow(files)) {
 # Loop through .csv files
 # Select depth cols only
 # Drop na data
+# Combine GPS data
 
 for (i in 1:nrow(files)) {
   
-  df <- read_tsv(paste0("RFB_Diving_Data/BIOT_CH_2022_AxyTrek/", files[i,], ".csv")) %>%
-    select(TagID, Date, Time, Depth) %>%
-    drop_na()
+  df <- left_join(read_tsv(paste0("RFB_Diving_Data/BIOT_CH_2022_AxyTrek/", files[i,], ".csv")) %>%
+                    dplyr::select(TagID, Date, Time, Depth) %>%
+                    drop_na() %>%
+                    mutate(DateTime = as.POSIXct(paste(Date, as.character(Time)), format = "%d/%m/%Y %H:%M:%S", tz="UTC")) %>%
+                    dplyr::select(TagID, DateTime, Depth),
+                  read_csv(paste0("RFB_Diving_Data/CH_AxyTrek_Processed/", files[i,], "_gps.csv")) %>%
+                    dplyr::select(Date, Lon, Lat, Trip, TripID) %>%
+                    rename("DateTime" = 1),
+                  by = "DateTime")
   
   write_csv(df, paste0("RFB_Diving_Data/CH_AxyTrek_Processed/", files[i,], "_depth.csv"))
 }
-
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-# Plot dive data for each individual ####
-
-for (i in 1:nrow(files)) {
-  
-  paste(i)
-  
-  df <- read_csv(paste0("RFB_Diving_Data/CH_AxyTrek_Processed/", files[i,], "_depth.csv"))
-  df$Date <- dmy(df$Date)
-  df$Date.Time <- as.POSIXct(paste(df$Date, as.character(df$Time)), format = "%Y-%m-%d %H:%M:%S", tz="UTC")
-  
-  for (j in 1:length(unique(df$Date))) {
-    
-    paste(j)
-    
-    datj <- unique(df$Date)[j]
-    ggplot(subset(df, Date == datj)) +
-      geom_point(aes(x = Date.Time, y = Depth), alpha = 0.4) +
-      theme_light()
-    
-    ggsave(paste0("RFB_Diving_Plots/", files[i,], "_", j, ".png"), width = 8, height = 8)
-    
-  }
-}
-
-rm(i,j)
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -106,11 +85,7 @@ k = 30  # window width for smoothing
 
 for (i in 1:nrow(files)) {
   
-  paste(i)
-  
   df <- read_csv(paste0("RFB_Diving_Data/CH_AxyTrek_Processed/", files[i,], "_depth.csv"))
-  df$Date <- dmy(df$Date)
-  df$Date.Time <- as.POSIXct(paste(df$Date, as.character(df$Time)), format = "%Y-%m-%d %H:%M:%S", tz="UTC")
   
   # Calculate rolling median depth every 30 readings
   offset <- zoo::rollapply(df$Depth, width = k, by = k, FUN = median)
@@ -128,12 +103,12 @@ for (i in 1:nrow(files)) {
   
   write_csv(df, paste0("RFB_Diving_Data/CH_AxyTrek_Processed/", files[i,], "_depth_corrected.csv"))
   
-  for (j in 1:length(unique(df$Date))) {
+  for (j in 1:length(unique(as.Date(df$DateTime)))) {
     
-    datj <- unique(df$Date)[j]
+    datj <- unique(as.Date(df$DateTime))[j]
     
-    ggplot(subset(df, Date == datj)) +
-      geom_point(aes(x = Date.Time, y = Depth_mod), alpha = 0.4) +
+    ggplot(subset(df, as.Date(DateTime) == datj)) +
+      geom_point(aes(x = DateTime, y = Depth_mod, col = Trip), alpha = 0.4) +
       theme_light()
     
     ggsave(paste0("RFB_Diving_Plots/", files[i,], "_", j, "b.png"), width = 8, height = 8)
