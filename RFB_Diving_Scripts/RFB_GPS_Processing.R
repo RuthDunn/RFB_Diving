@@ -124,7 +124,7 @@ for (j in 1:nrow(files)) {
   df.gps.dt <- foverlaps(df.gps.dt,
                          All.info,
                          type = "any", mult="first") %>%
-    dplyr::select(StartTime, Lon, Lat, Trip, Dist.km, TripID) %>%
+    dplyr::select(i.StartTime, Lon, Lat, Trip, Dist.km, TripID) %>%
     dplyr::rename(DateTime = 1)
   
   # ~~~~~~~~
