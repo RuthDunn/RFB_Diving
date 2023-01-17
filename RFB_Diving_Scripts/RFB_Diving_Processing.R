@@ -25,6 +25,8 @@ k = 30  # window width for smoothing
 
 for (i in 1:nrow(files)) {
   
+  # i = 1
+  
   # Load data ####
   
   df <- left_join(read_tsv(paste0("RFB_Diving_Data/BIOT_AxyTrek_Dives_csv/", files[i,], ".csv")) %>%
@@ -52,6 +54,9 @@ for (i in 1:nrow(files)) {
   new_series[new_series<0] = 0  # correct meaningless negative depths
   new_series[(length(new_series)-dif):length(new_series)]
   df$Depth_mod = new_series
+  
+  # Remove outlier
+  df = df[which(df$Depth_mod<9),]  # remove outlier
   
   # Write file ####
   
