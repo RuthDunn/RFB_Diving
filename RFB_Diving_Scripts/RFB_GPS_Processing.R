@@ -53,12 +53,28 @@ for (j in 1:nrow(files)) {
     dplyr::rename(Lon = 1, Lat = 2, DateTime = 3)
   
   # ~~~~~~~~
-  
-  # >1 km from colony = trip ####
-  
+
+  # Cut out data pre- first departure and post- last return #####
+    
   # Determine nest coordinates (as the most common GPS)
   
-  nest.coords = c(getmode(df.gps$Lon), getmode(df.gps$Lat))
+  nest.coords = round(c(getmode(df.gps$Lon), getmode(df.gps$Lat)), digits = 3)
+  
+  # Is coordinate at the nest, or away?
+  
+  home.or.away = point.in.polygon(round(df.gps$Lon, digits = 3), round(df.gps$Lat, digits = 3), 
+                                  nest.coords[1], nest.coords[2], 
+                                  mode.checked=FALSE)
+  
+  start = df.gps$DateTime[min(which(home.or.away == 0))]  # first departure
+  finish = df.gps$DateTime[max(which(home.or.away == 0))]  # last return
+  
+  # Trim and subset
+  df.gps <- df.gps[which(df.gps$DateTime > start & df.gps$DateTime < finish),]
+
+  # ~~~~~~~~
+  
+  # >1 km from colony = trip ####
   
   # Calc dists from nest
   
@@ -70,7 +86,7 @@ for (j in 1:nrow(files)) {
   
   # ~~~~~~~~
   
-  # Assign trip IDs and remove short (< 30 min) trips ####
+  # Assign trip IDs and re-assign short (< 30 min) trips ####
   
   # Split up data frame where value of Trip factor changes:
   
@@ -85,10 +101,15 @@ for (j in 1:nrow(files)) {
   
   Duration <- unname(unlist(lapply(split, nrow)) * as.numeric(mean(diff(df.gps$DateTime))))
   
+  # Calculate max dist from the nest:
+  
+  Max.Dist <- unlist(lapply(lapply(split, "[[", 4), max))
+  
   # Combine trip/nest and duration:
   
-  All.info <- as.data.frame(cbind(Trip, Duration))
+  All.info <- as.data.frame(cbind(Trip, Duration, Max.Dist))
   All.info$Duration <- as.numeric(as.character(All.info$Duration))
+  All.info$Max.Dist <- as.numeric(as.character(All.info$Max.Dist))
   All.info$Row.n <- seq.int(nrow(All.info))
   
   # If trip > 30 mins, make non-trip
@@ -96,6 +117,12 @@ for (j in 1:nrow(files)) {
   All.info$Trip <- ifelse(All.info$Trip == "TRUE" &
                             All.info$Duration < 1800,
                                "FALSE", All.info$Trip)
+  
+  # If trip > 1 km, make non-trip
+  
+  All.info$Trip <- ifelse(All.info$Trip == "TRUE" &
+                            All.info$Trip < 1,
+                          "FALSE", All.info$Trip)
   
   # Assign trip IDs to TRUE trips
   
