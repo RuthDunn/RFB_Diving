@@ -112,13 +112,13 @@ for (j in 1:nrow(files)) {
   All.info$Max.Dist <- as.numeric(as.character(All.info$Max.Dist))
   All.info$Row.n <- seq.int(nrow(All.info))
   
-  # If trip > 30 mins, make non-trip
+  # If trip < 30 mins, make non-trip
   
   All.info$Trip <- ifelse(All.info$Trip == "TRUE" &
                             All.info$Duration < 1800,
                                "FALSE", All.info$Trip)
   
-  # If trip > 1 km, make non-trip
+  # If trip < 1 km, make non-trip
   
   All.info$Trip <- ifelse(All.info$Trip == "TRUE" &
                             All.info$Trip < 1,
