@@ -3,6 +3,7 @@ rm(list = ls(all = TRUE))
 library(tidyverse) # for piping etc
 # library(lubridate) # for dmy function
 # library(adehabitatHR) # for interpolation
+library(data.table)
 
 files <- as.data.frame(list.files(path = "RFB_Diving_Data/BIOT_AxyTrek_Dives_csv/", pattern = "*.csv")) %>%
   separate(1, into = "files", sep = ".csv")
@@ -58,19 +59,53 @@ for (i in 1:nrow(files)) {
   # Remove outlier
   df = df[which(df$Depth_mod<9),]  # remove outlier
   
+  # Keep trips with dives only ####
+  
+  # Split up data frame where value of Trip factor changes:
+  df <- na.omit(df)
+  split <- split(df, cumsum(1:nrow(df) %in%
+                                  which(df$TripID != dplyr::lag(df$TripID))))
+  
+  # Calculate max depth (& extract Trip ID):
+  TripID <- c(unlist(lapply(lapply(split, "[[", 8), max)))
+  Max.Depth <- c(unlist(lapply(lapply(split, "[[", 3), max)))
+  
+  # Assign new Tip IDs
+  All.info <- as.data.frame(cbind(TripID, Max.Depth))
+  All.info$TripID <- ifelse(All.info$Max.Depth < 0.4, NA, All.info$TripID)
+  
+  # Add trip info data back into normal data
+  # Add trip info start and end times
+  Times <- do.call(c, lapply(split, "[", , "DateTime"))
+  All.info$StartTime <- do.call(c, (lapply(Times, head, 1)))
+  All.info$EndTime <- do.call(c, (lapply(Times, tail, 1)))
+  All.info <- as.data.table(All.info)
+  # Create "end time" for trip data
+  df.dt <- as.data.table(df)
+  df.dt$EndTime <- df.dt$DateTime + as.numeric(mean(diff(df$DateTime)))
+  names(df.dt)[2]<-"StartTime"
+  # Set key on dt2
+  setkey(All.info, StartTime, EndTime)
+  # Do the join
+  df.dt <- foverlaps(df.dt,
+                         All.info,
+                         type = "any", mult="first") %>%
+    dplyr::select(i.StartTime, Lon, Lat, Trip, Dist.km, TripID, Depth_mod) %>%
+    dplyr::rename(DateTime = 1)
+  
+  df.dt <- na.omit(df.dt)
+  
   # Write file ####
   
-  write_csv(df, paste0("RFB_Diving_Data/BIOT_AxyTrek_Processed/", files[i,], "_depth_corrected.csv"))
-  
-  df <- na.omit(df)
+  write_csv(df.dt, paste0("RFB_Diving_Data/BIOT_AxyTrek_Processed/", files[i,], "_depth_corrected.csv"))
   
   # Save plots of each trip ####
   
-  for (j in 1:length(unique(df$TripID))) {
+  for (j in 1:length(unique(df.dt$TripID))) {
     
-    tripj <- unique(df$TripID)[j]
+    tripj <- unique(df.dt$TripID)[j]
     
-    ggplot(subset(df, TripID == tripj)) +
+    ggplot(subset(df.dt, TripID == tripj)) +
       geom_point(aes(x = DateTime, y = Depth_mod), alpha = 0.4) +
       theme_light()
     
