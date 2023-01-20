@@ -5,12 +5,17 @@ library(geosphere) # for distHaversine function
 library(lubridate) # for dmy function
 library(adehabitatHR) # for interpolation
 library(data.table) # for as.data.table function
+library(sf) # read in chagos shapefile
 
 # Function to extract statistical mode:
 getmode <- function(v) {
   uniqv <- unique(na.omit(v))
   uniqv[which.max(tabulate(match(v, uniqv)))]
 }
+
+chagos = read_sf("RFB_Diving_Data/Chagos_Maps/chagos_maps/Chagos_v6_land_simple.shp")
+diego.garcia = st_coordinates(tail(chagos$geometry, 1))[, c('X', 'Y')]
+colnames(diego.garcia) = c('lon', 'lat')
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -22,7 +27,7 @@ files <- as.data.frame(list.files(path = "RFB_Diving_Data/BIOT_AxyTrek_GPS_txt/"
 
 for (j in 1:nrow(files)) {
   
-  # j = 2 # use to test code
+  # j = 1 # use to test code
   
   # Load files ####
   
@@ -56,14 +61,10 @@ for (j in 1:nrow(files)) {
 
   # Cut out data pre- first departure and post- last return #####
     
-  # Determine nest coordinates (as the most common GPS)
+  # Is coordinate at the colony, or away?
   
-  nest.coords = round(c(getmode(df.gps$Lon), getmode(df.gps$Lat)), digits = 3)
-  
-  # Is coordinate at the nest, or away?
-  
-  home.or.away = point.in.polygon(round(df.gps$Lon, digits = 3), round(df.gps$Lat, digits = 3), 
-                                  nest.coords[1], nest.coords[2], 
+  home.or.away = point.in.polygon(df.gps$Lon, df.gps$Lat, 
+                                  diego.garcia[,'lon'], diego.garcia[,'lat'], 
                                   mode.checked=FALSE)
   
   start = df.gps$DateTime[min(which(home.or.away == 0))]  # first departure
@@ -75,6 +76,10 @@ for (j in 1:nrow(files)) {
   # ~~~~~~~~
   
   # >1 km from colony = trip ####
+  
+  # Determine nest coordinates (as the most common GPS)
+  
+  nest.coords = round(c(getmode(df.gps$Lon), getmode(df.gps$Lat)), digits = 3)
   
   # Calc dists from nest
   
