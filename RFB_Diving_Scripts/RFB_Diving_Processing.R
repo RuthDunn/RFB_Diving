@@ -3,7 +3,11 @@ rm(list = ls(all = TRUE))
 library(tidyverse) # for piping etc
 # library(lubridate) # for dmy function
 # library(adehabitatHR) # for interpolation
-library(data.table)
+library(data.table) # for converting df to dt
+library(diveMove) # for extracting dive stats
+library(sf) # for loading and plotting the Chagos shapefile
+
+chagos = read_sf("RFB_Diving_Data/Chagos_Maps/chagos_maps/Chagos_v6_land_simple.shp")
 
 files <- as.data.frame(list.files(path = "RFB_Diving_Data/BIOT_AxyTrek_Dives_csv/", pattern = "*.csv")) %>%
   separate(1, into = "files", sep = ".csv")
@@ -95,20 +99,67 @@ for (i in 1:nrow(files)) {
   
   df.dt <- na.omit(df.dt)
   
-  # Write file ####
+  # Save dive plots for each trip ####
   
-  write_csv(df.dt, paste0("RFB_Diving_Data/BIOT_AxyTrek_Processed/", files[i,], "_depth_corrected.csv"))
+  df.dt$Dive <- ifelse(df.dt$Depth_mod > 0.1, TRUE, FALSE)
   
-  # Save plots of each trip ####
-  
-  for (j in 1:length(unique(df.dt$TripID))) {
+  for (j in 1:length(unique(df$TripID))) {
+    
+    # j = 1
     
     tripj <- unique(df.dt$TripID)[j]
     
     ggplot(subset(df.dt, TripID == tripj)) +
-      geom_point(aes(x = DateTime, y = Depth_mod), alpha = 0.4) +
+      geom_point(aes(x = DateTime, y = Depth_mod, col = as.factor(Dive)), alpha = 0.4, show.legend = F) +
+      scale_colour_manual(values = c("#FFB000", "#DC267F")) +
+      theme_light() +
+      scale_y_continuous(breaks = c(0.1,0.2,0.3,0.4,0.5))
+    
+    ggsave(paste0("RFB_Diving_Plots/Dive", files[i,], "_", j, ".png"), width = 8, height = 8)
+  }
+  
+  # Use diveMove to extract dive stats ####
+  
+  filename <- paste0("RFB_Diving_Data/BIOT_AxyTrek_Dives_csv/", files[i,], ".csv")
+  divesTDR <- createTDR(df.dt$DateTime,
+                        depth = df.dt$Depth_mod,
+                        dtime = 1,
+                        concurrentData = data.frame(df.dt[,c(2:3,4:6)]),
+                        file = filename, speed=F)
+  
+  caldivesTDR <- calibrateDepth(divesTDR, dive.thr = 0.1, zoc.method = "offset", offset = 0)
+  
+  df <- right_join(diveStats(caldivesTDR) %>%
+                        select(begdesc, divetim, maxdep) %>%
+                        rename(DateTime = 1, Duration = 2, MaxDepth = 3),
+                      df.dt %>%
+                        select(DateTime, Lon, Lat, Dist.km, TripID, Dive),
+                      by = "DateTime")
+  
+  # Save location plots for each trip ####
+  
+  for (j in 1:length(unique(df$TripID))) {
+    
+    # j = 1
+    
+    tripj <- unique(df$TripID)[j]
+    
+    ggplot(subset(df, TripID == tripj)) +
+      geom_point(aes(x = Lon, y = Lat, col = as.factor(Dive), size = as.factor(Dive)), alpha = 0.4, show.legend = F) +
+      scale_colour_manual(values = c("#FFB000", "#DC267F")) +
+      scale_size_manual(values = c(0.2,2)) +
+      geom_sf(data = chagos, fill = "#009E73", col = "#009E73") +
       theme_light()
     
     ggsave(paste0("RFB_Diving_Plots/", files[i,], "_", j, ".png"), width = 8, height = 8)
   }
+  
+  # Write file ####
+  
+  write_csv(df, paste0("RFB_Diving_Data/BIOT_AxyTrek_Processed/Map", files[i,], "_depth_corrected.csv"))
+  
+  # Save plots of each trip ####
+
+  
+  
 }
