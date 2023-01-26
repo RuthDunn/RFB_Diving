@@ -5,6 +5,7 @@ library(data.table) # for converting df to dt
 library(diveMove) # for extracting dive stats
 library(sf) # for loading and plotting the Chagos shapefile
 library(suncalc) # for calculating times of day
+library(lubridate) # for ymd function
 
 chagos = read_sf("RFB_Diving_Data/Chagos_Maps/chagos_maps/Chagos_v6_land_simple.shp")
 
@@ -29,7 +30,7 @@ k = 30  # window width for smoothing
 
 for (i in 1:nrow(files)) {
   
-  # i = 1
+  # i = 3
   
   # Load data ####
   
@@ -67,9 +68,9 @@ for (i in 1:nrow(files)) {
   # Keep trips with dives only ####
   
   # Split up data frame where value of Trip factor changes:
-  df <- na.omit(df)
-  split <- split(df, cumsum(1:nrow(df) %in%
-                                  which(df$TripID != dplyr::lag(df$TripID))))
+  df2 <- na.omit(df)
+  split <- split(df2, cumsum(1:nrow(df2) %in%
+                                  which(df2$TripID != dplyr::lag(df2$TripID))))
   
   # Calculate max depth (& extract Trip ID):
   TripID <- c(unlist(lapply(lapply(split, "[[", 8), max)))
@@ -77,6 +78,7 @@ for (i in 1:nrow(files)) {
   
   # Assign new Tip IDs
   All.info <- as.data.frame(cbind(TripID, Max.Depth))
+  # Remove unreal trips
   All.info$TripID <- ifelse(All.info$Max.Depth < 0.4, NA, All.info$TripID)
   
   # Add trip info data back into normal data
@@ -117,7 +119,10 @@ for (i in 1:nrow(files)) {
   
   # Save dive plots for each trip ####
   
-  df.dt$Dive <- ifelse(df.dt$Depth_mod > 0.1, TRUE, FALSE)
+  df.dt <- df.dt %>%
+    mutate(Dive = ifelse(Depth_mod > 0.1, TRUE, FALSE)) %>%
+    mutate(Hour_shade = ifelse(as.numeric(format(DateTime, "%H")) >= 19 |
+                                 as.numeric(format(DateTime, "%H")) <= 7, "gray20", NA))
   
   for (j in 1:length(unique(df.dt$TripID))) {
 
@@ -125,15 +130,17 @@ for (i in 1:nrow(files)) {
 
     tripj <- unique(df.dt$TripID)[j]
 
-    ggplot(subset(df.dt, TripID == tripj)) +
-      geom_point(aes(x = DateTime, y = Depth_mod, col = as.factor(Dive)), alpha = 0.4, show.legend = F) +
-      scale_colour_manual(values = c("#FFB000", "#DC267F")) +
-      theme_light()
+    ggplot(subset(df.dt, TripID == tripj & Dive == TRUE)) +
+      geom_rect(aes(xmin = DateTime, xmax = lead(DateTime), ymin = -Inf, ymax = Inf,
+                    fill = Hour_shade), alpha = .2) +
+      geom_point(aes(x = DateTime, y = Depth_mod), alpha = 0.4, show.legend = F) +
+      theme_light() +
+      scale_fill_identity()
 
     ggsave(paste0("RFB_Diving_Plots/", files[i,], "_", j, "dives.png"), width = 8, height = 8)
   }
 
-  write_csv(df, paste0("RFB_Diving_Data/BIOT_AxyTrek_Processed/", files[i,], "_depth_corrected.csv"))
+  write_csv(df.dt, paste0("RFB_Diving_Data/BIOT_AxyTrek_Processed/", files[i,], "_depth_corrected.csv"))
   
   # Use diveMove to extract dive stats ####
   
@@ -161,8 +168,8 @@ for (i in 1:nrow(files)) {
     tripj <- unique(df$TripID)[j]
 
     ggplot(subset(df, TripID == tripj)) +
-      geom_point(aes(x = Lon, y = Lat, col = as.factor(Dive), size = as.factor(Dive)), alpha = 0.4, show.legend = F) +
-      scale_colour_manual(values = c("#FFB000", "#DC267F")) +
+      geom_point(aes(x = Lon, y = Lat, col = ToD, size = as.factor(Dive)), alpha = 0.4) +
+      # scale_colour_manual(values = c("#FFB000", "#DC267F")) +
       scale_size_manual(values = c(0.2,2)) +
       geom_sf(data = chagos, fill = "#009E73", col = "#009E73") +
       theme_light()
