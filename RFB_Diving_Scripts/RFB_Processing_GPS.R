@@ -17,13 +17,13 @@ chagos = read_sf("RFB_Diving_Data/Chagos_Maps/chagos_maps/Chagos_v6_land_simple.
 diego.garcia = st_coordinates(tail(chagos$geometry, 1))[, c('X', 'Y')]
 colnames(diego.garcia) = c('lon', 'lat')
 
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-# Loop through all bird dive files ####
-
 files <- as.data.frame(list.files(path = "RFB_Diving_Data/BIOT_AxyTrek_GPS_txt/",
                                   pattern = "*.txt")) %>%
   separate(1, into = "files", sep = ".txt")
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+# Loop through all bird dive files ####
 
 for (j in 1:nrow(files)) {
   
