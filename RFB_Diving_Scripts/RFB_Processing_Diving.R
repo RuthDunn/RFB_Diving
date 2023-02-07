@@ -168,8 +168,8 @@ for (i in 1:nrow(files)) {
     tripj <- unique(df$TripID)[j]
 
     ggplot(subset(df, TripID == tripj)) +
-      geom_point(aes(x = Lon, y = Lat, col = ToD, size = as.factor(Dive)), alpha = 0.4) +
-      # scale_colour_manual(values = c("#FFB000", "#DC267F")) +
+      geom_point(aes(x = Lon, y = Lat, col = ToD, size = as.factor(Dive)), alpha = 0.4, show.legend = F) +
+      scale_colour_manual(values = c("#FFB000", "#DC267F")) +
       scale_size_manual(values = c(0.2,2)) +
       geom_sf(data = chagos, fill = "#009E73", col = "#009E73") +
       theme_light()
