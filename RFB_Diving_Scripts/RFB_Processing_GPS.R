@@ -44,28 +44,24 @@ for (j in 1:nrow(files)) {
   # Cut out data pre- first departure and post- last return #####
     
   # Is coordinate at the colony, or away?
-  
-  home.or.away = point.in.polygon(df.gps$Lon, df.gps$Lat, 
-                                  diego.garcia[,'lon'], diego.garcia[,'lat'], 
-                                  mode.checked=FALSE)
-  
-  start = df.gps$DateTime[min(which(home.or.away == 0))]  # first departure
-  finish = df.gps$DateTime[max(which(home.or.away == 0))]  # last return
-  
   # Trim and subset
-  df.gps <- df.gps[which(df.gps$DateTime > start & df.gps$DateTime < finish),]
-
+  df.gps <- df.gps[which(df.gps$DateTime >
+                           df.gps$DateTime[min(which(point.in.polygon(df.gps$Lon, df.gps$Lat,
+                                                                      diego.garcia[,'lon'], diego.garcia[,'lat'],
+                                                                      mode.checked=FALSE) == 0))] &
+                           df.gps$DateTime <
+                           df.gps$DateTime[max(which(point.in.polygon(df.gps$Lon, df.gps$Lat,
+                                                                      diego.garcia[,'lon'], diego.garcia[,'lat'],
+                                                                      mode.checked=FALSE) == 0))]),]
   # ~~~~~~~~
   
   # >1 km from colony = trip ####
   
   # Determine nest coordinates (as the most common GPS)
-  
-  nest.coords = round(c(getmode(df.gps$Lon), getmode(df.gps$Lat)), digits = 3)
-  
   # Calc dists from nest
   
-  df.gps$Dist.km = distHaversine(nest.coords, cbind(df.gps$Lon, df.gps$Lat))/1000
+  df.gps$Dist.km = distHaversine(round(c(getmode(df.gps$Lon), getmode(df.gps$Lat)), digits = 3),
+                                 cbind(df.gps$Lon, df.gps$Lat))/1000
 
   df.gps$Trip <- ifelse(df.gps$Dist.km > 1,
                         TRUE,
