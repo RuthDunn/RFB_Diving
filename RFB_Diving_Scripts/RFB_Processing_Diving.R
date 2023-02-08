@@ -33,7 +33,7 @@ k = 30  # window width for smoothing
 
 for (i in 1:nrow(files)) {
   
-  # i = 3
+  # i = 9
   
   # Load data ####
   
@@ -184,8 +184,9 @@ for (i in 1:nrow(files)) {
     mutate(PreDiveTime = as.numeric(DateTime - lag(DateTime))) %>%
     mutate(PreDiveTime = replace_na(PreDiveTime, 1)) %>%
     mutate(Bout = cumsum(PreDiveTime >= 221)+1) %>%
-    rowwise()
-
+    rowwise() %>%
+    group_by(Bout) %>% filter(n() > 1) # remove bouts with only 1 dive
+  
   # Save this file which includes dives that are in bouts only:
   
   write_csv(df.dive.bouts, paste0("RFB_Diving_Data/BIOT_AxyTrek_Processed/", files[i,], "_dive_stats.csv"))
@@ -233,8 +234,8 @@ for (i in 1:nrow(files)) {
                      Lat = unlist(lapply(sapply(df.bouts, "[", 5), mean)),
                      Lon = unlist(lapply(sapply(df.bouts, "[", 4), mean)),
                      ColonyDist.km = unlist(lapply(sapply(df.bouts, "[", 6), mean)),
-                     ToD = unlist(lapply(sapply(df.bouts, "[", 9), head, 1)))
-
+                     ToD = unlist(lapply(sapply(df.bouts, "[", 9), head, 1))) %>%
+    mutate(DateTime = do.call(c, (lapply(do.call(c, lapply(df.bouts, "[", "DateTime")), head, 1))))
   
   All.info$InterBoutDist.km = ifelse(All.info$TripID == lag(All.info$TripID),
                                                             distHaversine(cbind(All.info$Lon, All.info$Lat), cbind(lag(All.info$Lon), lag(All.info$Lat)))/1000,
