@@ -65,6 +65,19 @@ rm(files, i, df.mini)
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+# Pull out overview metrics for manuscript ####
+
+# N dives
+sum(df.dives$N.Dives)
+# N bouts
+nrow(df.dives)
+# N trips
+nlevels(unique(as.factor(paste(df.dives$BirdID, df.dives$TripID))))
+# N birds
+nlevels(as.factor(df.dives$BirdID))
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 # Plots of all trips ####
     
 map <- ggplot() +
