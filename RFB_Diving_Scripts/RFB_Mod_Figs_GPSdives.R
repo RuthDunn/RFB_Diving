@@ -76,6 +76,17 @@ nlevels(unique(as.factor(paste(df.dives$BirdID, df.dives$TripID))))
 # N birds
 nlevels(as.factor(df.dives$BirdID))
 
+# Min and max dist from colony that foraging took place at
+summary(df.dives$ColonyDist.km)
+
+# Foraging bout duration stats:
+hist(df.dives$BoutDuration)
+summary(df.dives$BoutDuration)
+
+# Inter-foraging bout distance stats:
+hist(df.dives$InterBoutDist.km)
+summary(df.dives$InterBoutDist.km)
+
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 # Plots of all trips ####
@@ -106,7 +117,7 @@ df.dives <- df.dives %>%
 
 log.dur.mod <- brm(logBoutDur ~ 0 + logColonyDist +
                  (1|BirdID|TripID),
-               data = df.dives)
+               data = df.dives, control = list(adapt_delta = 0.85))
 
 # Look at output
 print(log.dur.mod)
@@ -115,6 +126,9 @@ bayes_R2(log.dur.mod)
 # Check diagnostics:
 plot(log.dur.mod, ask = F)
 pp_check(log.dur.mod)
+
+# What proportion of the posterior distribution is above 0?
+hypothesis(log.dur.mod, "logColonyDist<0")
 
 # Plot bout duration model results
 
@@ -171,6 +185,9 @@ bayes_R2(log.dist.mod)
 # Check diagnostics:
 plot(log.dist.mod, ask = F)
 pp_check(log.dist.mod)
+
+# What proportion of the posterior distribution is above 0?
+hypothesis(log.dist.mod, "logColonyDist<0")
 
 # Data frame of conditional effects:
 ce.dist.mod <- plot(conditional_effects(log.dist.mod, effects = "logColonyDist",
