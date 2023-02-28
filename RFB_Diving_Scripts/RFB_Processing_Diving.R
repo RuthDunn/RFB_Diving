@@ -3,14 +3,9 @@ rm(list = ls(all = TRUE))
 library(tidyverse) # for piping etc
 library(data.table) # for converting df to dt
 library(diveMove) # for extracting dive stats
-library(sf) # for loading and plotting the Chagos shapefile
-library(suncalc) # for calculating times of day
+library(oce) # to calculate sun angle
 library(lubridate) # for ymd function
 library(geosphere) # calculate distances between locations
-
-chagos = read_sf("RFB_Diving_Data/Chagos_Maps/chagos_maps/Chagos_v6_land_simple.shp")
-diego.garcia = st_coordinates(tail(chagos$geometry, 1))[, c('X', 'Y')]
-colnames(diego.garcia) = c('lon', 'lat')
 
 files <- as.data.frame(list.files(path = "RFB_Diving_Data/BIOT_AxyTrek_Dives_csv/", pattern = "*.csv")) %>%
   separate(1, into = "files", sep = ".csv")
@@ -19,21 +14,19 @@ files <- as.data.frame(list.files(path = "RFB_Diving_Data/BIOT_AxyTrek_Dives_csv
 
 # Load raw-ish dive data
 
-# Loop through .csv files
-# Select depth cols only
-# Drop na data
-# Combine GPS data
-
-# Correct for device drift
-
-# Look at every time point in conjunction with the next 30
-# to determine whether the baseline has shifted
+# (Loop through .csv files)
+# (Select depth cols only)
+# (Drop na data)
+# (Combine GPS data)
+# (Correct for device drift)
+#     (Look at every time point in conjunction with the next 30
+#      to determine whether the baseline has shifted)
 
 k = 30  # window width for smoothing
 
 for (i in 1:nrow(files)) {
   
-  # i = 9
+  # i = 4
   
   # Load data ####
   
@@ -42,26 +35,28 @@ for (i in 1:nrow(files)) {
   df.dive.locs <- left_join(read_tsv(paste0("RFB_Diving_Data/BIOT_AxyTrek_Dives_csv/", files[i,], ".csv")) %>%
                     dplyr::select(TagID, Date, Time, Depth) %>%
                     drop_na() %>%
-                    mutate(DateTime = as.POSIXct(paste(Date, as.character(Time)), format = "%d/%m/%Y %H:%M:%S", tz="Etc/GMT-6")) %>%
+                    mutate(DateTime = as.POSIXct(paste(Date, as.character(Time)), format = "%d/%m/%Y %H:%M:%S")) %>%
                     dplyr::select(TagID, DateTime, Depth),
                   read_csv(paste0("RFB_Diving_Data/BIOT_AxyTrek_Processed/", files[i,], "_gps_interp.csv")) %>%
                     dplyr::select(DateTime, Lon, Lat, Dist.km, Trip, TripID),
                   by = "DateTime") %>%
-    drop_na(Lat)
+    drop_na(Lat) %>%
+    mutate(EndTime = DateTime + as.numeric(mean(diff(DateTime)))) %>%
+    rename("StartTime" = 2)
   
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~  
   
   # Correct drift & do ZOC ####
   
   # Calculate rolling median depth every 30 readings
-  offset <- rep(zoo::rollapply(df.dive.locs$Depth, width = k, by = k, FUN = median), each = k)
-  
   # Match lengths of offset df and OG depth df
-  dif = length(df.dive.locs$Depth) - length(offset)
-  offset = c(offset, rep(tail(offset, 1), dif))
+  dif <- length(df.dive.locs$Depth) - length(rep(zoo::rollapply(df.dive.locs$Depth, width = k, by = k, FUN = median), each = k))
+  offset <- c(rep(zoo::rollapply(df.dive.locs$Depth, width = k, by = k, FUN = median), each = k),
+             rep(tail(rep(zoo::rollapply(df.dive.locs$Depth, width = k, by = k, FUN = median), each = k), 1),
+                 dif))
   
   # Perform zero-offset correction on depth data
-  new_series = df.dive.locs$Depth - offset
+  new_series <- df.dive.locs$Depth - offset
   new_series[new_series<0] = 0  # correct meaningless negative depths
   new_series[(length(new_series)-dif):length(new_series)]
   df.dive.locs$Depth_mod = new_series
@@ -81,53 +76,29 @@ for (i in 1:nrow(files)) {
                                   which(df.dive.locs$TripID != dplyr::lag(df.dive.locs$TripID))))
   
   # Calculate max depth (& extract Trip ID):
-  All.info <- tibble(TripID = c(unlist(lapply(lapply(df.trips, "[[", 8), max))),
-                     Max.Depth = c(unlist(lapply(lapply(df.trips, "[[", 3), max))))
-  
-  # Remove unreal trips
-  All.info$TripID <- ifelse(All.info$Max.Depth < 0.4, NA, All.info$TripID)
+  All.info <- data.table(tibble(TripID = c(unlist(lapply(lapply(df.trips, "[[", 8), max))),
+                     Max.Depth = c(unlist(lapply(lapply(df.trips, "[[", 3), max)))) %>%
+    mutate(TripID = ifelse(Max.Depth < 0.4, NA, TripID)) %>%
+    mutate(StartTime = do.call(c, (lapply(do.call(c, lapply(df.trips, "[", "StartTime")), head, 1)))) %>%
+    mutate(EndTime = do.call(c, (lapply(do.call(c, lapply(df.trips, "[", "StartTime")), tail, 1)))))
   
   # Add trip info data back into main df
-  Times <- do.call(c, lapply(df.trips, "[", "DateTime"))
-  All.info <- All.info %>%
-    mutate(StartTime = do.call(c, (lapply(Times, head, 1)))) %>%
-    mutate(EndTime = do.call(c, (lapply(Times, tail, 1))))
-  All.info <- as.data.table(All.info)
-  # Create "end time" for trip data
-  dt.dive.locs <- as.data.table(df.dive.locs) %>%
-    mutate(EndTime = DateTime + as.numeric(mean(diff(DateTime)))) %>%
-    rename("StartTime" = 2)
-    # Set key on dt2
+  # Set key
   setkey(All.info, StartTime, EndTime)
   # Do the join
-  dt.dive.locs <- foverlaps(dt.dive.locs,
+  # (Also include sun angle calculation)
+  dt.dive.locs <- foverlaps(as.data.table(df.dive.locs),
                          All.info,
                          type = "any", mult="first") %>%
     dplyr::select(i.StartTime, Lon, Lat, Trip, Dist.km, TripID, Depth_mod) %>%
     dplyr::rename(DateTime = 1) %>%
     mutate(date = format(DateTime, format = "%Y-%m-%d")) %>%
-    mutate(date = ymd(date)) %>%
-    rename(lat = Lat, lon = Lon) %>%
-    drop_na()
-  
-  rm(df.trips, All.info, Times, df.dive.locs)
-  
-  # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  
-  # Include a 'time of day' column ####
-  
-  dt.dive.locs <- cbind(dt.dive.locs, getSunlightTimes(data = dt.dive.locs, keep = c("dawn", "sunrise", "sunset", "dusk"), tz = "Etc/GMT-6")[,c(4:7)])
-  
-  dt.dive.locs$ToD = ifelse(dt.dive.locs$DateTime <= dt.dive.locs$dawn | dt.dive.locs$DateTime > dt.dive.locs$dusk, "Night",
-                  ifelse(dt.dive.locs$DateTime <= dt.dive.locs$sunrise & dt.dive.locs$DateTime > dt.dive.locs$dawn, "Dawn",
-                         ifelse(dt.dive.locs$DateTime > dt.dive.locs$sunrise & dt.dive.locs$DateTime <= dt.dive.locs$sunset, "Day",
-                                ifelse(dt.dive.locs$DateTime > dt.dive.locs$sunset & dt.dive.locs$DateTime <= dt.dive.locs$dusk, "Dusk", NA))))
-  
-  dt.dive.locs <- dt.dive.locs %>%
-    rename(Lat = lat, Lon = lon) %>%
-    dplyr::select(DateTime, Lon, Lat, Trip, Dist.km, TripID, Depth_mod, ToD) %>%
+    drop_na() %>%
+    mutate(Sun.Alt = sunAngle(t = DateTime, longitude = Lon, latitude = Lat)[[3]]) %>%
     mutate(Dive = ifelse(Depth_mod > 0.1, TRUE, NA))
-  
+    
+  rm(df.trips, All.info, df.dive.locs)
+
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   
   # Save dive plots for each trip ####
@@ -139,9 +110,8 @@ for (i in 1:nrow(files)) {
   #   tripj <- unique(dt.dive.locs$TripID)[j]
   # 
   #   ggplot(subset(dt.dive.locs, TripID == tripj & Dive == TRUE)) +
-  #     geom_rect(aes(xmin = DateTime, xmax = lead(DateTime), ymin = -Inf, ymax = Inf,
-  #                   fill = Hour_shade), alpha = .2) +
-  #     geom_point(aes(x = DateTime, y = Depth_mod), alpha = 0.4, show.legend = F) +
+  #     # geom_rect(aes(xmin = DateTime, xmax = lead(DateTime), ymin = -Inf, ymax = Inf), alpha = .2) +
+  #     geom_point(aes(x = DateTime, y = Depth_mod, col = Sun.Alt)) +
   #     theme_light() +
   #     scale_fill_identity()
   # 
@@ -150,26 +120,42 @@ for (i in 1:nrow(files)) {
 
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   
-  # Use diveMove to extract dive stats ####
+  # Extract dive stats ####
   
-  divesTDR <- createTDR(dt.dive.locs$DateTime,
-                        depth = dt.dive.locs$Depth_mod,
-                        dtime = 1,
-                        concurrentData = data.frame(dt.dive.locs[,c(2:3,4:6)]),
-                        file = filename, speed=F)
+  t.diff <- median(as.numeric(dt.dive.locs$DateTime - lag(dt.dive.locs$DateTime)), na.rm = T)
   
-  caldivesTDR <- calibrateDepth(divesTDR, dive.thr = 0.1, zoc.method = "offset", offset = 0)
+  df.dives <- dt.dive.locs %>%
+    mutate(Dive = ifelse(Depth_mod > 0.1,           # 10 cm cut-off
+                         "yes", NA)) %>%
+    drop_na() %>%
+    mutate(PreDiveTime = as.numeric(DateTime - lag(DateTime))) %>%
+    mutate(PreDiveTime = replace_na(PreDiveTime, t.diff)) %>%
+    mutate(DiveID = cumsum(PreDiveTime > t.diff)+1) %>%
+    rowwise()
   
-  df.dive.locs <- right_join(diveStats(caldivesTDR) %>%
-                        dplyr::select(begdesc, divetim, maxdep) %>%
-                        rename(DateTime = 1, Dive.Duration = 2, MaxDepth = 3),
-                   dt.dive.locs %>%
-                     dplyr::select(DateTime, Lon, Lat, Dist.km, TripID, Dive, ToD),
-                      by = "DateTime") %>%
+  rm(dt.dive.locs)
+  
+  # Split up data frame where value of DiveID changes:
+  
+  df.dives.split <- split(df.dives, cumsum(1:nrow(df.dives) %in%
+                                                  which(df.dives$DiveID != dplyr::lag(df.dives$DiveID))))
+  
+  # Calculate dive max depth & duration
+
+  df.dives2 <- right_join(tibble(DiveID = c(unlist(lapply(lapply(df.dives.split, "[", 11), max))),
+                                 DiveDuration_s = as.numeric(difftime(as.POSIXct(t(as.data.frame(lapply(sapply(df.dives.split, "[", 1), tail, 1)))),
+                                                                      as.POSIXct(t(as.data.frame(lapply(sapply(df.dives.split, "[", 1), head, 1)))),
+                                                                      units = "secs")) + t.diff,
+                                 MaxDepth_cm = c(unlist(lapply(lapply(df.dives.split, "[", 7), max)))) %>%
+                            mutate(DateTime = do.call(c, (lapply(do.call(c, lapply(df.dives.split, "[", "DateTime")), head, 1)))),
+                          df.dives %>%
+                            dplyr::select(DateTime, Lon, Lat, Dist.km, TripID, Dive, Sun.Alt),
+                          by = "DateTime") %>%
     drop_na() %>%
     mutate(PostDiveTime = lead(DateTime) - DateTime)
   
-  rm(dt.dive.locs, divesTDR, caldivesTDR)
+  rm(df.dives.split, df.dives)
+  
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   
   # Classify dive bouts ####
@@ -177,8 +163,8 @@ for (i in 1:nrow(files)) {
 
   # Split up data frame where value of bout factor changes:
   
-  df.dive.bouts <- df.dive.locs %>%
-    mutate(Bout = ifelse(df.dive.locs$PostDiveTime < 221 | lag(df.dive.locs$PostDiveTime < 221),
+  df.dive.bouts <- df.dives2 %>%
+    mutate(Bout = ifelse(df.dives2$PostDiveTime < 221 | lag(df.dives2$PostDiveTime < 221),
                               "yes", NA)) %>%
     drop_na() %>%
     mutate(PreDiveTime = as.numeric(DateTime - lag(DateTime))) %>%
@@ -191,27 +177,7 @@ for (i in 1:nrow(files)) {
   
   write_csv(df.dive.bouts, paste0("RFB_Diving_Data/BIOT_AxyTrek_Processed/", files[i,], "_dive_stats.csv"))
   
-  rm(df.dive.locs)
-  
-  # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  
-  # Save location plots for each trip ####
-  
-  # for (j in 1:length(unique(df$TripID))) {
-  # 
-  #   # j = 1
-  # 
-  #   tripj <- unique(df$TripID)[j]
-  # 
-  #   ggplot(subset(df, TripID == tripj)) +
-  #     geom_point(aes(x = Lon, y = Lat, col = ToD, size = as.factor(Dive)), alpha = 0.4, show.legend = F) +
-  #     scale_colour_manual(values = c("#FFB000", "#DC267F")) +
-  #     scale_size_manual(values = c(0.2,2)) +
-  #     geom_sf(data = chagos, fill = "#009E73", col = "#009E73") +
-  #     theme_light()
-  # 
-  #   ggsave(paste0("RFB_Diving_Plots/", files[i,], "_", j, "map.png"), width = 8, height = 8)
-  # }
+  rm(df.dives2)
   
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   
@@ -224,17 +190,17 @@ for (i in 1:nrow(files)) {
   # Calculate max depth, bout duration, max dist from the colony, distance from the previous bout and bout ID):
   # Remove bout duration for the one at the start of each trip ####
   
-  All.info <- tibble(BoutID = c(unlist(lapply(lapply(df.bouts, "[", 11), max))),
-                     TripID = c(unlist(lapply(lapply(df.bouts, "[", 7), max))),
+  All.info <- tibble(BoutID = c(unlist(lapply(lapply(df.bouts, "[", 12), max))),
+                     TripID = c(unlist(lapply(lapply(df.bouts, "[", 8), max))),
                      Max.Depth = c(unlist(lapply(lapply(df.bouts, "[", 3), max))),
                      N.Dives = c(unlist(lapply(lapply(df.bouts, "[", 1), nrow))),
-                     BoutDuration = as.numeric(difftime(as.POSIXct(t(as.data.frame(lapply(sapply(df.bouts, "[", 1), tail, 1)))),
-                                                        as.POSIXct(t(as.data.frame(lapply(sapply(df.bouts, "[", 1), head, 1)))),
+                     BoutDuration = as.numeric(difftime(as.POSIXct(t(as.data.frame(lapply(sapply(df.bouts, "[", 4), tail, 1)))),
+                                                        as.POSIXct(t(as.data.frame(lapply(sapply(df.bouts, "[", 4), head, 1)))),
                                                         units = "secs")),
-                     Lat = unlist(lapply(sapply(df.bouts, "[", 5), mean)),
-                     Lon = unlist(lapply(sapply(df.bouts, "[", 4), mean)),
-                     ColonyDist.km = unlist(lapply(sapply(df.bouts, "[", 6), mean)),
-                     ToD = unlist(lapply(sapply(df.bouts, "[", 9), head, 1))) %>%
+                     Lat = unlist(lapply(sapply(df.bouts, "[", 6), mean)),
+                     Lon = unlist(lapply(sapply(df.bouts, "[", 5), mean)),
+                     ColonyDist.km = unlist(lapply(sapply(df.bouts, "[", 7), mean)),
+                     ToD = unlist(lapply(sapply(df.bouts, "[", 10), head, 1))) %>%
     mutate(DateTime = do.call(c, (lapply(do.call(c, lapply(df.bouts, "[", "DateTime")), head, 1))))
   
   All.info$InterBoutDist.km = ifelse(All.info$TripID == lag(All.info$TripID),
