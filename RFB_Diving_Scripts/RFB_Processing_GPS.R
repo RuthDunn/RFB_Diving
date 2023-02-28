@@ -5,7 +5,6 @@ library(geosphere) # for distHaversine function
 library(lubridate) # for dmy function
 library(adehabitatHR) # for interpolation
 library(data.table) # for as.data.table function
-library(sf) # read in chagos shapefile
 
 # Function to extract statistical mode:
 getmode <- function(v) {
