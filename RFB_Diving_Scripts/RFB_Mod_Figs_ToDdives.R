@@ -2,6 +2,8 @@ rm(list = ls(all = TRUE))
 
 library(tidyverse) # for piping etc
 library(ggpubr) # for saving 2 plots side by side
+library(brms) # for the modelling
+library(tidybayes) # for plotting model outputs
 
 files <- as.data.frame(list.files(path = "RFB_Diving_Data/BIOT_AxyTrek_Processed/", pattern = "*_dive_stats.csv")) %>%
   separate(1, into = "files", sep = "_dive_stats.csv")
@@ -22,7 +24,7 @@ for (i in 1:nrow(files)) {
   
   df.mini.depth <- read_csv(paste0("RFB_Diving_Data/BIOT_AxyTrek_Processed/", files[i,], "_dive_stats.csv")) %>%
     drop_na() %>%
-    dplyr::select(DateTime, Dive, MaxDepth_cm, TripID, Bout, Sun.Alt) %>%
+    dplyr::select(DateTime, Dive, MaxDepth_m, TripID, Bout, Sun.Alt) %>%
     mutate(DateTime2 = DateTime + 21600) %>% # Add on 6 hours for IO time (21600 s)
     mutate(Year = format(DateTime2, format = "%Y")) %>%
     mutate(Hour = format(DateTime2, format = "%H")) %>%
@@ -30,13 +32,13 @@ for (i in 1:nrow(files)) {
   
   df.dives.depth <- rbind(df.dives.depth, df.mini.depth)
 
-  df.mini.number <- df.mini.depth %>%
-    group_by(c(ToD)) %>%
-    summarise(no_rows = length(ToD)) %>%
-    mutate(BirdID = i) %>%
-    rename(NumDives = 2)
+  # df.mini.number <- df.mini.depth %>%
+  #   group_by(c(ToD)) %>%
+  #   summarise(no_rows = length(ToD)) %>%
+  #   mutate(BirdID = i) %>%
+  #   rename(NumDives = 2)
   
-  df.dives.number <- rbind(df.dives.number, df.mini.number)
+  # df.dives.number <- rbind(df.dives.number, df.mini.number)
   
 }
 
@@ -66,26 +68,108 @@ a <- ggplot(df.dives.depth, aes(x = as.numeric(Hour), y = Dive)) +
   geom_bar(aes(y = (after_stat(count))/sum(after_stat(count))), fill = NA, col = "black") +
   scale_y_continuous(labels=scales::percent) +
   scale_x_continuous(limits = c(0,24), expand = c(0,0)) +
-  theme_light() %+replace% theme(axis.title.x = element_blank(),
-                                 axis.ticks.x = element_blank(),
-                                 axis.text.x = element_blank()) +
-  ylab("Relative frequency of dives")
+  theme_light() +
+  ylab("Relative frequency of dives") +
+  xlab("Hour of the day")
 
 a
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+# Modelling ####
+
+# Make quick relationship plots
+
+ggplot(df.dives.depth) +
+  geom_point(aes(x = Sun.Alt, y = MaxDepth_m))
+
+ggplot(df.dives.depth) +
+  geom_point(aes(x = log(Sun.Alt), y = log(MaxDepth_m)))
+
+ggplot(df.dives.depth) +
+  geom_point(aes(x = (Sun.Alt), y = log(MaxDepth_m)))
+
+hist(df.dives.depth$MaxDepth_m)
+hist(log(df.dives.depth$MaxDepth_m))
+
+hist(df.dives.depth$Sun.Alt)
+
+# Model relationship between max depth and sun altitude
+
+depth.mod <- brm(log(MaxDepth_m) ~ 0 + Sun.Alt +
+                      (1 | BirdID/Bout),
+                    data = df.dives.depth)
+
+# to reduce divergent transitions after warm up try something along these lines:
+# control = list(adapt_delta = 0.9 , max_treedepth = 9)
+
+plot(depth.mod)
+pp_check(depth.mod)
+pp_check(depth.mod, type='stat', stat='mean')
+pp_check(depth.mod, type='error_scatter_avg')
+plot(loo(depth.mod))
+
+summary(depth.mod)
+
+mcmc_plot(depth.mod)
+bayes_R2(depth.mod, digits=2)
+
+conditional_effects(depth.mod)
+
+# Try adding in a smooth for the sun altitude variable instead (GAM-like?)
+
+depth.mod.smooth <- brm(log(MaxDepth_m) ~ 0 + s(Sun.Alt) +
+                   (1 | BirdID/Bout),
+                 data = df.dives.depth,
+                 control = list(adapt_delta = 0.99, max_treedepth = 12))
+
+plot(depth.mod.smooth)
+pp_check(depth.mod.smooth)
+pp_check(depth.mod.smooth, type='stat', stat='mean')
+pp_check(depth.mod.smooth, type='error_scatter_avg')
+plot(loo(depth.mod.smooth))
+
+summary(depth.mod.smooth)
+
+mcmc_plot(depth.mod.smooth)
+bayes_R2(depth.mod.smooth, digits=2)
+
+conditional_smooths(depth.mod.smooth)
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+# Plot the results ####
+
+# Data frame of conditional effects:
+ce.depth.mod <- plot(conditional_effects(depth.mod.smooth, effects = "Sun.Alt",
+                                        re_formula = NULL)) # Incorporate random effects variance
+ce.depth.mod <- ce.depth.mod$Sun.Alt$data
+
+c <- ggplot(df.dives.depth, aes(x = Sun.Alt, y = (MaxDepth_m))) +
+  geom_jitter(alpha = 0.6, col = "#004488") +
+  geom_smooth(data = ce.depth.mod, aes(x = Sun.Alt, y = exp(estimate__),
+                                      ymin = exp(lower__), ymax = exp(upper__)),
+              stat = "identity", alpha = 0.2, col = "black") +
+  theme_light() %+replace% theme(legend.position = "bottom") +
+  ylab("Maximum depth (m)") +
+  xlab("Sun altitude") +
+  scale_y_continuous(trans = "log10")
+
+c
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 # Plots the dive depths at different times of day
 
-b <- ggplot(df.dives.depth, aes(x = as.numeric(Hour), y = MaxDepth_cm, col = Sun.Alt)) +
-  # scale_colour_manual(values = c("#DDAA33", "#BB5566", "#004488")) +
-  scale_colour_gradient2(low = "#004488", high = "#DDAA33", mid = "#BB5566", midpoint = 40, "Sun altitude (degrees above horizon)") +
+b <- ggplot(df.dives.depth, aes(x = as.numeric(Hour), y = MaxDepth_m, col = Sun.Alt)) +
+  scale_colour_gradient2(low = "#004488", high = "#DDAA33", mid = "#BB5566", midpoint = 40, "Sun
+altitude (°)") +
   geom_jitter(alpha = 0.6) +
-  geom_violin(aes(group = as.factor(Hour)), fill = NA, col = "grey60") +
+  geom_violin(aes(group = as.factor(Hour)), fill = NA, col = "black") +
   scale_x_continuous(limits = c(0,24), expand = c(0,0)) +
   theme_light() %+replace% theme(axis.title.y = element_text(angle = 90, margin = margin(l = 3, r = 9)),
                                  axis.text.y = element_text(margin = margin(r = 5)),
-                                 legend.position = "bottom",
+                                 legend.position = "right",
                                  axis.title.x = element_text(margin = margin(b = 0, t = 0)),
                                  legend.margin = margin(b = -0.5, t = -0.5)) +
   ylab("Maximum depth (m)") +
@@ -95,24 +179,24 @@ b
 
 # Save plots:
 
-ggarrange(a, b, nrow = 2, heights = c(0.8, 1.2))
+ggarrange(a, 
+          ggarrange(b, c, ncol = 2, widths = c(1.2, 0.8)),
+          nrow = 2, heights = c(0.9, 1.1))
 
 ggsave("RFB_Diving_Plots/Dive_fig.png", width = 8, height = 5)
 
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-# Run model of dive depth vs time of day ####
+# Summary stats for text ####
 
-ggplot(df.dives.depth) +
-  geom_point(aes(x = Sun.Alt, y = MaxDepth_cm))
+# Max dive depth:
+summary(df.dives.depth$MaxDepth_m)
+# Info about this dive:
+df.dives.depth[which(df.dives.depth$MaxDepth_m == max(df.dives.depth$MaxDepth_m)),]
 
-ggplot(df.dives.depth) +
-  geom_point(aes(x = log(Sun.Alt), y = log(MaxDepth_cm)))
+# Pull out effect sizes:
+summary(depth.mod.smooth)
 
-ggplot(df.dives.depth) +
-  geom_point(aes(x = (Sun.Alt), y = log(MaxDepth_cm)))
-
-depth.mod <- brm(MaxDepth_cm ~ 0 + Sun.Alt +
-                      (1|BirdID|TripID),
-                    data = df.dives.depth,
-                 control = list(adapt_delta = 0.99))
+# Max altitude:
+summary(df.dives.depth$Sun.Alt)
+df.dives.depth[which(df.dives.depth$Sun.Alt == max(df.dives.depth$Sun.Alt)),]
