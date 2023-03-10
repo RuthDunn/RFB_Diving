@@ -146,7 +146,7 @@ for (i in 1:nrow(files)) {
                                  DiveDuration_s = as.numeric(difftime(as.POSIXct(t(as.data.frame(lapply(sapply(df.dives.split, "[", 1), tail, 1)))),
                                                                       as.POSIXct(t(as.data.frame(lapply(sapply(df.dives.split, "[", 1), head, 1)))),
                                                                       units = "secs")) + t.diff,
-                                 MaxDepth_cm = c(unlist(lapply(lapply(df.dives.split, "[", 7), max)))) %>%
+                                 MaxDepth_m = c(unlist(lapply(lapply(df.dives.split, "[", 7), max)))) %>%
                             mutate(DateTime = do.call(c, (lapply(do.call(c, lapply(df.dives.split, "[", "DateTime")), head, 1)))),
                           df.dives %>%
                             dplyr::select(DateTime, Lon, Lat, Dist.km, TripID, Dive, Sun.Alt),
