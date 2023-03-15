@@ -158,7 +158,7 @@ dur.post <- ggplot(as_draws_df(log.dur.mod)) +
                                  axis.ticks.x = element_blank(), axis.text.x = element_blank(),
                                  axis.title.y = element_blank()) +
   xlab("") +
-  annotate("text", x = -.35, y = .8, label = "Effect-size", size = 3, angle = 90)
+  annotate("text", x = -.35, y = .85, label = "Effect-size", size = 3, angle = 90)
 
 dur.plots <- ggarrange(dur.points + rremove("xlab"), dur.post + rremove("xlab"), widths = c(1, 0.5))
 dur.plots <- annotate_figure(dur.plots, bottom = textGrob("Distance from colony (km)"))
@@ -215,7 +215,7 @@ dist.post <- ggplot(as_draws_df(log.dist.mod)) +
                                  axis.ticks.x = element_blank(), axis.text.x = element_blank(),
                                  axis.title.y = element_blank()) +
   xlab("") +
-  annotate("text", x = -.4, y = .49, label = "Effect-size", size = 3, angle = 90)
+  annotate("text", x = -.4, y = .55, label = "Effect-size", size = 3, angle = 90)
 
 dist.post
 
