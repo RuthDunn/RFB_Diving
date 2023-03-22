@@ -68,7 +68,7 @@ for (j in 1:nrow(files)) {
   All.info <- tibble(Trip = as.character(unlist(lapply(split, "[", 1, "Trip"))),
               Duration = unname(unlist(lapply(split, nrow)) * as.numeric(mean(diff(df.gps$StartTime)))),
               Max.Dist = unlist(lapply(lapply(split, "[[", 5), max))) %>%
-    add_rownames(var = "Row.n") %>%
+    tibble::rownames_to_column(var = "Row.n") %>%
     mutate(Trip = ifelse(Trip == "TRUE" &
                            Duration < 1800 | Max.Dist < 1,
                          "FALSE", Trip))
@@ -78,7 +78,7 @@ for (j in 1:nrow(files)) {
   All.info2 <- data.table(bind_rows(All.info[which(All.info$Trip=='FALSE'),] %>%
                           mutate(TripID = NA), 
                         All.info[which(All.info$Trip=='TRUE'),] %>%
-                          add_rownames(var = "TripID")) %>%
+                          tibble::rownames_to_column(var = "TripID")) %>%
     arrange(Row.n) %>%
     mutate(StartTime = do.call(c, (lapply(do.call(c, lapply(split, "[", "StartTime")), head, 1)))) %>%
     mutate(EndTime = do.call(c, (lapply(do.call(c, lapply(split, "[", "StartTime")), tail, 1)))))
@@ -139,7 +139,7 @@ for (j in 1:nrow(files)) {
   All.info <- tibble(Trip = as.character(unlist(lapply(split, "[", 1, "Trip"))),
                      Duration = unname(unlist(lapply(split, nrow)) * as.numeric(mean(diff(df.gps$StartTime)))),
                      Max.Dist = unlist(lapply(lapply(split, "[[", 5), max))) %>%
-    add_rownames(var = "Row.n") %>%
+    tibble::rownames_to_column(var = "Row.n") %>%
     mutate(Trip = ifelse(Trip == "TRUE" &
                            Duration < 1800 | Max.Dist < 1,
                          "FALSE", Trip))
@@ -149,7 +149,7 @@ for (j in 1:nrow(files)) {
   All.info2 <- data.table(bind_rows(All.info[which(All.info$Trip=='FALSE'),] %>%
                                       mutate(TripID = NA), 
                                     All.info[which(All.info$Trip=='TRUE'),] %>%
-                                      add_rownames(var = "TripID")) %>%
+                                      tibble::rownames_to_column(var = "TripID")) %>%
                             arrange(Row.n) %>%
                             mutate(StartTime = do.call(c, (lapply(do.call(c, lapply(split, "[", "StartTime")), head, 1)))) %>%
                             mutate(EndTime = do.call(c, (lapply(do.call(c, lapply(split, "[", "StartTime")), tail, 1)))))
