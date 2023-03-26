@@ -44,7 +44,7 @@ all.enviro <- NULL
 
 k = 50 # (The number of random points to extract)
 
-for (i in 11:nrow(files)) {
+for (i in 1:nrow(files)) {
   
   # i = 1
   
