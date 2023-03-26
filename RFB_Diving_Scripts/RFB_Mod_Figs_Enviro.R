@@ -3,7 +3,7 @@ rm(list = ls(all = TRUE))
 library(tidyverse) # for nice code
 library(brms) # for modelling
 
-dat <- read_csv("RFB_Diving_Data/BIOT_AxyTrek_Processed/AllBirds_EnviroData.csv")
+dat <- read_csv("RFB_Diving_Data/BIOT_AxyTrek_Processed/AllBirds_Bouts_EnviroData.csv")
 head(dat)
 
 # Select data from the dive trip only
@@ -11,7 +11,7 @@ head(dat)
 trip.dat <- dat[which(dat$Value =='Dive.Locs' | dat$Value =='Trip.Locs'),] %>%
   select(!...1) %>%
   mutate(Value = as.numeric(recode(Value, Dive.Locs = "1", Trip.Locs = "0"))) %>%
-  mutate(Count = ifelse(Value == 1, 0, 50))
+  mutate(Weight = ifelse(Value == 1, 1, 50))
 
 trip.dat <- trip.dat[c(0.:5000),]
 
@@ -19,7 +19,7 @@ trip.dat <- trip.dat[c(0.:5000),]
 
 # Dive location habitat selection model
 
-sst.mod <- brm(Value | weights(Count) ~ 0 + s(SST) +
+sst.mod <- brm(Value | weights(Weight) ~ 0 + s(SST) + Dist.km +
                    (1 | BirdID/TripID),
                  data = trip.dat, family = bernoulli)
 
