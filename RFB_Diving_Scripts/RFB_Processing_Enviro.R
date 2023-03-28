@@ -68,11 +68,12 @@ for (i in 1:nrow(files)) {
     
     # j = 1
 
-    # Extract current dive locations:
+    # Extract current dive bout locations:
     tripj.divepoints <- subset(df.dives, TripID == unique(df.dives$TripID)[j])[,c("Lat", "Lon", "ColonyDist.km")] %>%
       mutate(Value = "Dive.Locs") %>%
       rename(Y = 1, X = 2, Dist.km = ColonyDist.km) %>%
-      mutate(N = row_number())
+      mutate(DiveNum = row_number()) %>%
+      mutate(PointNum = 1)
         
     # Create dataframe of bird id, trip id and date of Trip j, & repeat 101 times:
     # (Change k * 1 to k * 2 if we extract MCP points as well)
@@ -93,9 +94,9 @@ for (i in 1:nrow(files)) {
     
     tripj.pspointsa <- as.data.frame(st_coordinates(tripj.pspointsa)[,c(1:3)]) %>%
       mutate(Value = "Trip.Locs") %>%
-      mutate(N = row_number()) %>%
-      rename(Dist.km = Z)
-    
+      rename(Dist.km = Z) %>%
+      mutate(DiveNum = rep(c(1:(n()/50)), each = 50)) %>%
+      mutate(PointNum = rep(c(1:50), times = n()/50))
     # ~~~~~~~~~~~~~~~~~~~~~~~~
     
     # b)  MCP points ####
@@ -109,7 +110,8 @@ for (i in 1:nrow(files)) {
       mutate(Dist.km = distHaversine(round(c(diego.garcia[101,'lon'], diego.garcia[101,'lat']), digits = 3),
                                      cbind(X, Y))/1000) %>%
       mutate(Value = "Available.Locs") %>%
-      mutate(N = row_number())
+      mutate(DiveNum = rep(c(1:(n()/50)), each = 50)) %>%
+      mutate(PointNum = rep(c(1:50), times = n()/50))
     
     plot(tripj.pspointsb$X, tripj.pspointsb$Y, col= "green")
     points(tripj.pspointsa$X, tripj.pspointsa$Y, col= "blue")
