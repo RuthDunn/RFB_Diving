@@ -7,8 +7,8 @@ library(sf) # for loading and plotting the Chagos shapefile
 
 chagos = read_sf("RFB_Diving_Data/Chagos_Maps/chagos_maps/Chagos_v6_land_simple.shp")
 
-files <- as.data.frame(list.files(path = "RFB_Diving_Data/BIOT_AxyTrek_Processed/", pattern = "*_depth_corrected.csv")) %>%
-  separate(1, into = "files", sep = "_depth_corrected.csv")
+files <- as.data.frame(list.files(path = "RFB_Diving_Data/BIOT_AxyTrek_Dives_csv/", pattern = "*.csv")) %>%
+  separate(1, into = "files", sep = ".csv")
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -24,7 +24,7 @@ for (i in 1:nrow(files)) {
   
   df.mini <- read_csv(paste0("RFB_Diving_Data/BIOT_AxyTrek_Processed/", files[i,], "_dive_stats.csv")) %>%
     drop_na() %>%
-    select(DateTime, Dive, TimeDiff) %>%
+    dplyr::select(DateTime, Dive, PostDiveTime) %>%
     mutate(DateTime = DateTime + 43200) %>%
     mutate(Year = format(DateTime, format = "%Y")) %>%
     mutate(Hour = format(DateTime, format = "%H")) %>%
@@ -35,12 +35,14 @@ for (i in 1:nrow(files)) {
   
 }
 
+head(df.dives)
+
 rm(df.mini, i)
 
 # Plot the cumulative frequency of post-dive intervals on a logarithmic scale ####
 # against gap length
 
-cumfreq.df <- cbind(as.data.frame(table(df.dives$TimeDiff)), cumsum(table(df.dives$TimeDiff))) %>%
+cumfreq.df <- cbind(as.data.frame(table(df.dives$PostDiveTime)), cumsum(table(df.dives$PostDiveTime))) %>%
   rename(CumFreq = 3, TimeDiffs = 1) %>%
   mutate_if(is.factor, as.numeric)
 
@@ -86,7 +88,7 @@ my.model <- data.frame(Times = cumfreq.df$TimeDiffs, Freq = my.fitted)
 # plot the fitted model
 ggplot(my.model, aes(x = Times, y = Freq)) + geom_line()
 
-# I'm less sure about the lower breakpoint, but it does come out the same, even when I vary my estimate
-# I'm also won't use the lower breakpoint, so we're all good.
+# I'm less sure about the lower break point, but it does come out the same, even when I vary my estimate
+# I also won't use the lower break point, so we're all good.
 
 # Soooo... 221 seconds
