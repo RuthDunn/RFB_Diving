@@ -19,34 +19,58 @@ sd.dep <- sd(dat$Depth)
 
 # Load the final model:
 
-load("RFB_Diving_Data/Habitat_Modelling/FullModel_10.Rdata")
+load("RFB_Diving_Data/Habitat_Modelling/Available_vs_Dive_FullModel.Rdata")
+track.mod <- mod.depth.chlor.sst
+load("RFB_Diving_Data/Habitat_Modelling/Track_vs_Dive_FullModel.Rdata")
+avail.mod <- mod.depth.chlor.sst
+rm(mod.depth.chlor.sst)
 
 # Pull out data frames of conditional effects:
 
 # plot(conditional_effects(full.modi))
 
-ce.mod <- bind_rows(plot(conditional_effects(full.modi, effects = "sc.Depth"))$sc.Depth$data %>%
-                      select(c(1,10,12,13)) %>%
-                      mutate(Variable = "Depth") %>%
-                      rename(Value = sc.Depth) %>%
-                      mutate(Value = (Value * sd.dep) + mean.dep),
-                    plot(conditional_effects(full.modi, effects = "sc.SST"))$sc.SST$data %>%
-                      select(c(1,10,12,13)) %>%
-                      mutate(Variable = "SST") %>%
-                      rename(Value = sc.SST) %>%
-                      mutate(Value = (Value * sd.sst) + mean.sst),
-                    plot(conditional_effects(full.modi, effects = "sc.Chlor"))$sc.Chlor$data %>%
-                      select(c(1,10,12,13)) %>%
-                      mutate(Variable = "Chlor") %>%
-                      rename(Value = sc.Chlor) %>%
-                      mutate(Value = (Value * sd.chl) + mean.chl)) %>%
-  mutate(Variable = factor(Variable, levels = c("Depth", "Chlor", "SST")))
+ce.mod <- bind_rows(bind_rows(plot(conditional_effects(track.mod, effects = "sc.Depth"))$sc.Depth$data %>%
+                                select(c(1,10,12,13)) %>%
+                                mutate(Variable = "Depth") %>%
+                                rename(Value = sc.Depth) %>%
+                                mutate(Value = (Value * sd.dep) + mean.dep),
+                              plot(conditional_effects(track.mod, effects = "sc.SST"))$sc.SST$data %>%
+                                select(c(1,10,12,13)) %>%
+                                mutate(Variable = "SST") %>%
+                                rename(Value = sc.SST) %>%
+                                mutate(Value = (Value * sd.sst) + mean.sst),
+                              plot(conditional_effects(track.mod, effects = "sc.Chlor"))$sc.Chlor$data %>%
+                                select(c(1,10,12,13)) %>%
+                                mutate(Variable = "Chlor") %>%
+                                rename(Value = sc.Chlor) %>%
+                                mutate(Value = (Value * sd.chl) + mean.chl)) %>%
+                      mutate(Variable = factor(Variable, levels = c("Depth", "Chlor", "SST"))) %>%
+                      mutate(Model = "Track"),
+                    bind_rows(plot(conditional_effects(avail.mod, effects = "sc.Depth"))$sc.Depth$data %>%
+                                select(c(1,10,12,13)) %>%
+                                mutate(Variable = "Depth") %>%
+                                rename(Value = sc.Depth) %>%
+                                mutate(Value = (Value * sd.dep) + mean.dep),
+                              plot(conditional_effects(avail.mod, effects = "sc.SST"))$sc.SST$data %>%
+                                select(c(1,10,12,13)) %>%
+                                mutate(Variable = "SST") %>%
+                                rename(Value = sc.SST) %>%
+                                mutate(Value = (Value * sd.sst) + mean.sst),
+                              plot(conditional_effects(avail.mod, effects = "sc.Chlor"))$sc.Chlor$data %>%
+                                select(c(1,10,12,13)) %>%
+                                mutate(Variable = "Chlor") %>%
+                                rename(Value = sc.Chlor) %>%
+                                mutate(Value = (Value * sd.chl) + mean.chl)) %>%
+                      mutate(Variable = factor(Variable, levels = c("Depth", "Chlor", "SST"))) %>%
+                      mutate(Model = "Available"))
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-facet_names <- as_labeller(c("Depth" = "Sea floor depth (m)",
+facet.names <- as_labeller(c("Depth" = "Sea floor depth (m)",
                              "Chlor" = "Chlorophyll-a concentration (mg m\u207B\u00B3)",
-                             "SST" = "Sea surface temperature (\u00B0C)"))
+                             "SST" = "Sea surface temperature (\u00B0C)",
+                             "Available" = "Used vs available",
+                             "Track" = "Used vs traversed"))
 
 ggplot() +
   geom_smooth(data = ce.mod, aes(x = Value, y = estimate__,
@@ -54,7 +78,7 @@ ggplot() +
               stat = "identity", alpha = 0.5) +
   scale_colour_manual(values = c("#004488", "#DDAA33", "#BB5566")) +
   scale_fill_manual(values = c("#004488", "#DDAA33", "#BB5566")) +
-  facet_grid(.~Variable, scales = "free",
+  facet_grid(Model~Variable, scales = "free",
              labeller = facet_names) +
   theme_light() %+replace% theme(legend.position = "none",
                                  strip.background = element_rect(fill = "white", colour = "grey70"),
@@ -65,4 +89,4 @@ ggplot() +
   xlab("Environmental variable") +
   ylab("Probability of habitat use")
 
-ggsave("RFB_Diving_Plots/Habitat_fig.png", width = 8, height = 3)
+ggsave("RFB_Diving_Plots/Habitat_fig.png", width = 8, height = 6)
