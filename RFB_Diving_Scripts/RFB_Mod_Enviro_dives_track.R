@@ -10,7 +10,7 @@ library(ROCR) # for area under a curve calculations
 # Scale and center all variables
 # Create new TripID variable that is unique to the particular bird ("BirdTrip")
 
-dat <- read_csv("RFB_Diving_Data/BIOT_AxyTrek_Processed/AllBirds_Bouts_EnviroData.csv") %>%
+dat <- read_csv("RFB_Diving_Data/Habitat_Modelling/AllBirds_Bouts_EnviroData.csv") %>%
   dplyr::select(!...1) %>%
   mutate(sc.SST = scale(SST)[,1]) %>%
   mutate(sc.Chlor = scale(Chlor)[,1]) %>%
@@ -29,7 +29,8 @@ head(dat)
 # Add weights
 
 trip.dat <- dat[which(dat$Value =='Dive.Locs' | dat$Value =='Trip.Locs'),] %>%
-  mutate(Value = as.numeric(dplyr::recode(Value, Dive.Locs = "1", Trip.Locs = "0")))
+  mutate(Value = as.numeric(dplyr::recode(Value, Dive.Locs = "1", Trip.Locs = "0"))) %>%
+  unique()
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -99,65 +100,114 @@ for(i in c(1,2,3,4,5,10,15,10,25,30,40,50)){
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-# Drop 1 model selection:
+# Drop 1 model selection ####
 
-trip.dat10 <- drop_na(trip.dat) %>%
-  filter(PointNum <= 10) %>%
-  mutate(Weight = ifelse(Value == 1, 1, 10))
+auc.vals.ms <- NULL
 
-mod10.depth.chlor <- brm(Value | weights(Weight) ~ 0 + sc.Dist + sc.Chlor + sc.Depth +
+# Subset data to include a certain number of points and weight the points by this value
+i = 2
+trip.dati <- trip.dat %>%
+  filter(PointNum <= i) %>%
+  mutate(Weight = ifelse(Value == 1, 1, i))
+
+# See where NAs are present in the data & remove those comparisons
+trip.dati.na <- trip.dati[which(is.na(trip.dati$sc.SST) | is.na(trip.dati$sc.Chlor)),]
+trip.dati <- subset(trip.dati, !(trip.dati$BirdTripDive %in% trip.dati.na$BirdTripDive))
+
+# Run model 1:
+mod.depth.chlor.sst <- brm(Value | weights(Weight) ~ 0 + sc.Dist + sc.Chlor + sc.Depth + sc.SST +
+                               (1 | BirdTrip),
+                             data = trip.dati, family = bernoulli)
+
+# Compute AUC:
+AUC <- performance(prediction(predict(mod.depth.chlor.sst, type = "response")[,1],
+                              as.vector(pull(na.omit(trip.dati), Value))),
+                   measure = "auc")
+AUC <- AUC@y.values[[1]]
+
+# Compute R^2
+R2 <- bayes_R2(mod.depth.chlor.sst)[,1]
+Covariates <- "Chlor and Depth and SST"
+
+# Save stuff together
+auc.val <- cbind(AUC, R2, Covariates)
+auc.vals.ms <- rbind(auc.vals.ms, auc.val)
+
+write_csv(as.data.frame(auc.vals.ms), ("RFB_Diving_Data/Habitat_Modelling/Track_vs_Dive_model_selection_AUCs.csv"))
+
+# Run model 2:
+mod.depth.chlor <- brm(Value | weights(Weight) ~ 0 + sc.Dist + sc.Chlor + sc.Depth +
                    (1 | BirdTrip),
-                 data = trip.dat10, family = bernoulli)
+                 data = trip.dati, family = bernoulli)
 
-AUC <- performance(prediction(predict(mod10.depth.chlor, type = "response")[,1],
-                              as.vector(pull(na.omit(trip.dat10), Value))),
+# Compute AUC:
+AUC <- performance(prediction(predict(mod.depth.chlor, type = "response")[,1],
+                              as.vector(pull(na.omit(trip.dati), Value))),
                    measure = "auc")
 AUC <- AUC@y.values[[1]]
-auc.val <- cbind("depth.chlor", AUC)
-auc.vals <- rbind(auc.vals, auc.val)
 
-write_csv(as.data.frame(auc.vals), ("RFB_Diving_Data/Habitat_Modelling/Track_vs_Dive_model_selection_AUCs.csv"))
+# Compute R^2
+R2 <- bayes_R2(mod.depth.chlor)[,1]
+Covariates <- "Chlor and Depth"
 
-mod10.depth.sst <- brm(Value | weights(Weight) ~ 0 + sc.Dist + sc.SST + sc.Depth +
+# Save stuff together
+auc.val <- cbind(AUC, R2, Covariates)
+auc.vals.ms <- rbind(auc.vals.ms, auc.val)
+
+write_csv(as.data.frame(auc.vals.ms), ("RFB_Diving_Data/Habitat_Modelling/Track_vs_Dive_model_selection_AUCs.csv"))
+
+# Run model 3:
+mod.depth.sst <- brm(Value | weights(Weight) ~ 0 + sc.Dist + sc.SST + sc.Depth +
                            (1 | BirdTrip),
-                         data = trip.dat10, family = bernoulli)
+                         data = trip.dati, family = bernoulli)
 
-AUC <- performance(prediction(predict(mod10.depth.sst, type = "response")[,1],
-                              as.vector(pull(na.omit(trip.dat10), Value))),
+# Compute AUC:
+AUC <- performance(prediction(predict(mod.depth.sst, type = "response")[,1],
+                              as.vector(pull(na.omit(trip.dati), Value))),
                    measure = "auc")
 AUC <- AUC@y.values[[1]]
-auc.val <- cbind("depth.sst", AUC)
-auc.vals <- rbind(auc.vals, auc.val)
 
-write_csv(as.data.frame(auc.vals), ("RFB_Diving_Data/Habitat_Modelling/Track_vs_Dive_model_selection_AUCs2.csv"))
+# Compute R^2
+R2 <- bayes_R2(mod.depth.sst)[,1]
+Covariates <- "SST and Depth"
 
-mod10.chlor.sst <- brm(Value | weights(Weight) ~ 0 + sc.Dist + sc.SST + sc.Chlor +
+# Save stuff together
+auc.val <- cbind(AUC, R2, Covariates)
+auc.vals.ms <- rbind(auc.vals.ms, auc.val)
+
+write_csv(as.data.frame(auc.vals.ms), ("RFB_Diving_Data/Habitat_Modelling/Track_vs_Dive_model_selection_AUCs.csv"))
+
+# Run model 4:
+mod.chlor.sst <- brm(Value | weights(Weight) ~ 0 + sc.Dist + sc.SST + sc.Chlor +
                          (1 | BirdTrip),
-                       data = trip.dat10, family = bernoulli)
+                       data = trip.dati, family = bernoulli)
 
-AUC <- performance(prediction(predict(mod10.chlor.sst, type = "response")[,1],
-                              as.vector(pull(na.omit(trip.dat10), Value))),
+# Compute AUC:
+AUC <- performance(prediction(predict(mod.depth.sst, type = "response")[,1],
+                              as.vector(pull(na.omit(trip.dati), Value))),
                    measure = "auc")
 AUC <- AUC@y.values[[1]]
-auc.val <- cbind("chlor.sst", AUC)
-auc.vals <- rbind(auc.vals, auc.val)
 
-write_csv(as.data.frame(auc.vals), ("RFB_Diving_Data/Habitat_Modelling/Track_vs_Dive_model_selection_AUCs3.csv"))
+# Compute R^2
+R2 <- bayes_R2(mod.depth.sst)[,1]
+Covariates <- "SST and Chlor"
 
-save(file="RFB_Diving_Data/Habitat_Modelling/FullModel_10.Rdata", list="full.modi")
+# Save stuff together
+auc.val <- cbind(AUC, R2, Covariates)
+auc.vals.ms <- rbind(auc.vals.ms, auc.val)
+
+write_csv(as.data.frame(auc.vals.ms), ("RFB_Diving_Data/Habitat_Modelling/Track_vs_Dive_model_selection_AUCs.csv"))
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-library(beepr)
-beep(4)
+# Check out the top, best model ####
 
+save(file="RFB_Diving_Data/Habitat_Modelling/Track_vs_Dive_Model.Rdata", list="mod.chlor.sst")
 
-plot(full.modi)
-pp_check(full.modi)
+plot(mod.chlor.sst)
+pp_check(mod.chlor.sst)
 
-summary(full.modi)
+summary(mod.chlor.sst)
 
-mcmc_plot(full.modi)
-conditional_effects(full.modi)
-
-bayes_R2(full.modi)
+mcmc_plot(mod.chlor.sst)
+conditional_effects(mod.chlor.sst)
