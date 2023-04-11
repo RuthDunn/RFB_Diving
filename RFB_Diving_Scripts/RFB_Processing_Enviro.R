@@ -46,7 +46,7 @@ k = 50 # (The number of random points to extract)
 
 for (i in 1:nrow(files)) {
   
-  # i = 1
+  # i = 2
   
   # Load data ####
   
@@ -136,11 +136,11 @@ for (i in 1:nrow(files)) {
     
   }
  
-  rm(tripj.divepoints, tripj.pspointsa, tripj.pspointsb, tripj, tripj.info)
-  
   all.enviro <- rbind(all.enviro, bird.enviro) 
   
 }
+
+test <- unique(all.enviro)
 
 # rm(bathyInfo, chlorInfo, sstInfo)
 
