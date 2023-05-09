@@ -24,11 +24,12 @@ for (i in 1:nrow(files)) {
   
   df.mini.depth <- read_csv(paste0("RFB_Diving_Data/BIOT_AxyTrek_Processed/", files[i,], "_dive_stats.csv")) %>%
     drop_na() %>%
-    dplyr::select(DateTime, Dive, MaxDepth_m, TripID, Bout, Sun.Alt) %>%
+    dplyr::select(DateTime, Dive, MaxDepth_cm, TripID, Bout, Sun.Alt) %>%
     mutate(DateTime2 = DateTime + 21600) %>% # Add on 6 hours for IO time (21600 s)
     mutate(Year = format(DateTime2, format = "%Y")) %>%
     mutate(Hour = format(DateTime2, format = "%H")) %>%
-    mutate(BirdID = i)
+    mutate(BirdID = i) %>%
+    rename(MaxDepth_m = MaxDepth_cm)
   
   df.dives.depth <- rbind(df.dives.depth, df.mini.depth)
 
