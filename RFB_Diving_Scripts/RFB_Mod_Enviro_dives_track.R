@@ -192,6 +192,36 @@ AUC <- AUC@y.values[[1]]
 R2 <- bayes_R2(mod.depth.sst)[,1]
 Covariates <- "SST and Chlor"
 
+# Run model 5:
+mod.chlor <- brm(Value | weights(Weight) ~ 0 + sc.Dist + sc.Chlor +
+                       (1 | BirdTrip),
+                     data = trip.dati, family = bernoulli)
+
+# Compute AUC:
+AUC <- performance(prediction(predict(mod.chlor, type = "response")[,1],
+                              as.vector(pull(na.omit(trip.dati), Value))),
+                   measure = "auc")
+AUC <- AUC@y.values[[1]]
+
+# Compute R^2
+R2 <- bayes_R2(mod.chlor)[,1]
+Covariates <- "Chlor"
+
+# Run model 6:
+mod.sst <- brm(Value | weights(Weight) ~ 0 + sc.Dist + sc.SST +
+                       (1 | BirdTrip),
+                     data = trip.dati, family = bernoulli)
+
+# Compute AUC:
+AUC <- performance(prediction(predict(mod.sst, type = "response")[,1],
+                              as.vector(pull(na.omit(trip.dati), Value))),
+                   measure = "auc")
+AUC <- AUC@y.values[[1]]
+
+# Compute R^2
+R2 <- bayes_R2(mod.sst)[,1]
+Covariates <- "SST"
+
 # Save stuff together
 auc.val <- cbind(AUC, R2, Covariates)
 auc.vals.ms <- rbind(auc.vals.ms, auc.val)
@@ -202,12 +232,21 @@ write_csv(as.data.frame(auc.vals.ms), ("RFB_Diving_Data/Habitat_Modelling/Track_
 
 # Check out the top, best model ####
 
-save(file="RFB_Diving_Data/Habitat_Modelling/Track_vs_Dive_Model.Rdata", list="mod.chlor.sst")
+save(file="RFB_Diving_Data/Habitat_Modelling/Track_vs_Dive_Model.Rdata", list="mod.depth.chlor.sst")
 
-plot(mod.chlor.sst)
-pp_check(mod.chlor.sst)
+plot(mod.depth.chlor.sst)
+pp_check(mod.depth.chlor.sst)
 
-summary(mod.chlor.sst)
+summary(mod.depth.chlor.sst)
 
-mcmc_plot(mod.chlor.sst)
-conditional_effects(mod.chlor.sst)
+mcmc_plot(mod.depth.chlor.sst)
+conditional_effects(mod.depth.chlor.sst)
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+# https://discourse.mc-stan.org/t/alternative-to-car-vif-for-brmsfit-models/3970
+# Paul Buerkner:
+# "There is no such method for brmsfit objects. I suggest you run your model once with lm() just to extract the VIFs."
+
+car::vif(lm(Value ~ sc.Dist + sc.Chlor + sc.Depth + sc.SST,
+       data = trip.dati))
