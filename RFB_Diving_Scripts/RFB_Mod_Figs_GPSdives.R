@@ -12,6 +12,7 @@ library(ggpubr) # to plot figs side by side
 library(brms) # for Bayesian modelling
 library(tidybayes) # to dig into model outputs
 library(grid) # for sharing axes across plots
+library(data.table) # for rbindlist() function
 
 chagos = read_sf("RFB_Diving_Data/Chagos_Maps/chagos_maps/Chagos_v6_land_simple.shp")
 
@@ -24,33 +25,81 @@ files <- as.data.frame(list.files(path = "RFB_Diving_Data/BIOT_AxyTrek_Processed
 
 # Loop through .csv files to load data ####
 
-# 1) GPS points
+# 1) GPS points ####
 
 df.gps <- NULL
+
+# half_way_points <- NULL
 
 for (i in 1:nrow(files)) {
   
   # i = 1
   
-  # Load data ####
-  
   df.mini <- read_csv(paste0("RFB_Diving_Data/BIOT_AxyTrek_Processed/", files[i,], "_gps.csv")) %>%
-    dplyr::select(DateTime, Lon, Lat) %>%
-    mutate(Year = format(DateTime, format = "%Y"))
+    dplyr::select(DateTime, Lon, Lat, TripID, Bird) %>%
+    mutate(Year = format(DateTime, format = "%Y")) %>%
+    na.omit()
   
   df.gps <- rbind(df.gps, df.mini)
   
+  # Robin's function to add trip direction arrows ####
+  
+  # for (bird in 1:length(unique(df.gps$Bird))) {
+  #   
+  #   # bird = 1
+  #   
+  #   # Extract one bird of data
+  #   this_bird = subset(df.gps, Bird == unique(df.gps$Bird)[bird])
+  #   
+  #   # Extract the info that we'll need later
+  #   bird_id = this_bird$Bird[1]
+  #   ntrip = length(unique(this_bird$TripID))
+  #   Year = this_bird$Year[1]
+  #   
+  #   zip <- function(...) {
+  #     mapply(list, ..., SIMPLIFY = FALSE)
+  #   }
+  #   seqs = list()
+  #   
+  #   for (i in 1:length(unique(this_bird$TripID))) {
+  #     
+  #     # i = 1
+  #     
+  #     # Extract one track
+  #     this_track = subset(this_bird, TripID == unique(this_bird$TripID)[i])
+  #     
+  #     # Points 4 times along the track
+  #     points = seq(1, (length(this_track$Lat) - 1), round(length(this_track$Lat)/4))
+  #     # Drop points at start and end
+  #     points = points[2:(length(points) - 1)]
+  #     # Get next point for each
+  #     points_p1 = points + 1
+  #     # Combine into pairs
+  #     all_points = unlist(zip(points, points_p1))
+  #     # Get values
+  #     Lon = this_track$Lon[all_points]
+  #     Lat = this_track$Lat[all_points]
+  #     TripID = this_track$TripID[all_points]
+  #     seqs[[i]] = data.frame(Lon, Lat, bird_id, TripID, Year, id = paste(bird_id, TripID, sort(rep(seq(1, length(points_p1)), 2))))
+  #   }
+  #   half_way_point = rbindlist(seqs)
+  #   
+  #   half_way_points <- rbind(half_way_points, half_way_point)
+  #   
+  # }
+  
 }
 
-# 2) Dive locations
+# rm(this_bird, bird_id, ntrip, zip, i, this_track, points, points_p1,
+#    all_points, Lon, Lat, TripID, seqs, bird, Year, half_way_point)
+
+# 2) Dive locations ####
 
 df.dives <- NULL
 
 for (i in 1:nrow(files)) {
   
   # i = 1
-  
-  # Load data ####
   
   df.mini <- read_csv(paste0("RFB_Diving_Data/BIOT_AxyTrek_Processed/", files[i,], "_bout_stats.csv")) %>%
     dplyr::select(DateTime, TripID, N.Dives, BoutDuration, InterBoutDist.km, ColonyDist.km, Lon, Lat) %>%
@@ -93,6 +142,11 @@ summary(df.dives$InterBoutDist.km)
     
 map <- ggplot() +
   geom_path(data = df.gps, aes(x = Lon, y = Lat, col = Year), alpha = 0.7) +
+  
+  # geom_path(data = half_way_points,
+  #           aes(x = Lon, y = Lat, group = id, col = Year),
+  #           arrow = arrow(type = "closed", length = unit(0.3, "cm"))) +
+  
   scale_colour_manual(values = c("#BB5566", "#004488")) +
   geom_point(data = df.dives, aes(x = Lon, y = Lat, col = Year)) +
   geom_sf(data = chagos, fill = "#000000", col = "#000000") +
