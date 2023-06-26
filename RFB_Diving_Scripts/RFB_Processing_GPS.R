@@ -26,7 +26,7 @@ files <- as.data.frame(list.files(path = "RFB_Diving_Data/BIOT_AxyTrek_GPS_txt/"
 
 for (j in 1:nrow(files)) {
   
-  # j = 1 # use to test code
+  # j = 5 # use to test code
   
   # Load files ####
   
@@ -67,8 +67,9 @@ for (j in 1:nrow(files)) {
   
   All.info <- tibble(Trip = as.character(unlist(lapply(split, "[", 1, "Trip"))),
               Duration = unname(unlist(lapply(split, nrow)) * as.numeric(mean(diff(df.gps$StartTime)))),
-              Max.Dist = unlist(lapply(lapply(split, "[[", 5), max))) %>%
+              Max.Dist = unlist(lapply(lapply(split, "[[", 7), max))) %>%
     tibble::rownames_to_column(var = "Row.n") %>%
+    mutate_at("Row.n", as.numeric) %>%
     mutate(Trip = ifelse(Trip == "TRUE" &
                            Duration < 1800 | Max.Dist < 1,
                          "FALSE", Trip))
