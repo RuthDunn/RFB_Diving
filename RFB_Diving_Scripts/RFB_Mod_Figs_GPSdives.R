@@ -124,6 +124,8 @@ nrow(df.dives)
 nlevels(unique(as.factor(paste(df.dives$BirdID, df.dives$TripID))))
 # N birds
 nlevels(as.factor(df.dives$BirdID))
+# min and max of dives per bout
+summary(df.dives$N.Dives)
 
 # Min and max dist from colony that foraging took place at
 summary(df.dives$ColonyDist.km)
@@ -148,7 +150,8 @@ map <- ggplot() +
   #           arrow = arrow(type = "closed", length = unit(0.3, "cm"))) +
   
   scale_colour_manual(values = c("#BB5566", "#004488")) +
-  geom_point(data = df.dives, aes(x = Lon, y = Lat, col = Year)) +
+  geom_point(data = df.dives, aes(x = Lon, y = Lat, col = Year, size = N.Dives), alpha = 0.6) +
+  scale_size_binned(name = "Dives per bout", range = c(0.1,5)) +
   geom_sf(data = chagos, fill = "#000000", col = "#000000") +
   theme_light() %+replace% theme(legend.position="bottom") +
   coord_sf(default_crs = sf::st_crs(4724), expand = T) +
@@ -214,8 +217,9 @@ dur.post <- ggplot(as_draws_df(log.dur.mod)) +
   xlab("") +
   annotate("text", x = -.35, y = .85, label = "Effect-size", size = 3, angle = 90)
 
-dur.plots <- ggarrange(dur.points + rremove("xlab"), dur.post + rremove("xlab"), widths = c(1, 0.5))
-dur.plots <- annotate_figure(dur.plots, bottom = textGrob("Distance from colony (km)"))
+dur.plots <- ggarrange(dur.points + rremove("xlab"), dur.post,
+                       widths = c(1, 0.5))
+# dur.plots <- annotate_figure(dur.plots, bottom = textGrob("Distance from colony (km)"))
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -273,7 +277,8 @@ dist.post <- ggplot(as_draws_df(log.dist.mod)) +
 
 dist.post
 
-dist.plots <- ggarrange(dist.points + rremove("xlab"), dist.post + rremove("xlab"), widths = c(1, 0.5))
+dist.plots <- ggarrange(dist.points + rremove("xlab"), dist.post,
+                        widths = c(1, 0.5))
 dist.plots <- annotate_figure(dist.plots, bottom = textGrob("Distance from colony (km)"))
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -281,7 +286,7 @@ dist.plots <- annotate_figure(dist.plots, bottom = textGrob("Distance from colon
 # Save up plots ####
 
 ggarrange(map,
-          ggarrange(dur.plots, dist.plots, nrow = 2),
+          ggarrange(dur.plots, dist.plots, nrow = 2, heights = c(1.01, 1)),
           ncol = 2,
           widths = c(2,1))
 
