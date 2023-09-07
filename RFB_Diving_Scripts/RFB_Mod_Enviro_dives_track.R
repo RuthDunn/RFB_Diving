@@ -232,7 +232,7 @@ write_csv(as.data.frame(auc.vals.ms), ("RFB_Diving_Data/Habitat_Modelling/Track_
 
 # Check out the top, best model ####
 
-save(file="RFB_Diving_Data/Habitat_Modelling/Track_vs_Dive_Model.Rdata", list="mod.depth.chlor.sst")
+save(file="RFB_Diving_Data/Habitat_Modelling/Track_vs_Dive_Model.rds", list="mod.depth.chlor.sst")
 
 plot(mod.depth.chlor.sst)
 pp_check(mod.depth.chlor.sst)
