@@ -187,9 +187,9 @@ sd.dep <- sd(dat$Depth)
 
 # Load the final model:
 
-load("RFB_Diving_Data/Habitat_Modelling/Track_vs_Available_Model.Rdata")
+load("RFB_Diving_Data/Habitat_Modelling/Track_vs_Available_Model.rds")
 track.mod <- mod.depth.chlor.sst
-load("RFB_Diving_Data/Habitat_Modelling/Track_vs_Dive_Model.Rdata")
+load("RFB_Diving_Data/Habitat_Modelling/Track_vs_Dive_Model.rds")
 dive.mod <- mod.depth.chlor.sst
 rm(mod.depth.chlor.sst)
 
@@ -256,7 +256,6 @@ plot.dat <- rbind(dat %>%
                     mutate(Model = "Track") %>%
                     gather(Variable, Value, SST:Chlor) %>%
                     mutate(Variable = factor(Variable, levels = c("Depth", "Chlor", "SST"))))
-
 
 model.plot <- ggplot() +
   geom_point(data = plot.dat, aes(x = Value, y = estimate__, col = Variable), alpha = 0.1, size = 0.3) +
