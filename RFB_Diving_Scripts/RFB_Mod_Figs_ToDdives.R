@@ -84,8 +84,7 @@ mcmc_plot(depth.mod)
 
 # Create plot #####
 
-# Plots the frequency of dives at different times of day
-# as well as the depths
+# Plots dive depths at different times of day
 
 # Add hours that don't have dives as empty factors to df
 df.dives.depth$Hour <- as.factor(df.dives.depth$Hour)
@@ -101,18 +100,18 @@ ce.depth.mod <- ce.depth.mod$time_of_day$data
 
 # Make actual plots:
 
-a <- ggplot(df.dives.depth, aes(x = as.numeric(Hour), y = Dive)) +
-  annotate("rect", xmin = 0, xmax = 6, ymin = -Inf, ymax = Inf, fill = "#004488", alpha = 0.6) +
-  annotate("rect", xmin = 6, xmax = 7, ymin = -Inf, ymax = Inf, fill = "#BB5566", alpha = 0.6) +
-  annotate("rect", xmin = 7, xmax = 19, ymin = -Inf, ymax = Inf, fill = "#DDAA33", alpha = 0.6) +
-  annotate("rect", xmin = 19, xmax = 20, ymin = -Inf, ymax = Inf, fill = "#BB5566", alpha = 0.6) +
-  annotate("rect", xmin = 20, xmax = 24, ymin = -Inf, ymax = Inf, fill = "#004488", alpha = 0.6) +
-  geom_bar(aes(y = (after_stat(count))/sum(after_stat(count))), fill = "white", col = NA, alpha = 0.9) +
-  scale_y_continuous(labels = scales::percent) +
-  scale_x_continuous(limits = c(0,24), expand = c(0,0)) +
-  theme_light()  +
-  ylab("Relative frequency of dives") +
-  xlab("Hour of the day")
+# a <- ggplot(df.dives.depth, aes(x = as.numeric(Hour), y = Dive)) +
+#   annotate("rect", xmin = 0, xmax = 6, ymin = -Inf, ymax = Inf, fill = "#004488", alpha = 0.6) +
+#   annotate("rect", xmin = 6, xmax = 7, ymin = -Inf, ymax = Inf, fill = "#BB5566", alpha = 0.6) +
+#   annotate("rect", xmin = 7, xmax = 19, ymin = -Inf, ymax = Inf, fill = "#DDAA33", alpha = 0.6) +
+#   annotate("rect", xmin = 19, xmax = 20, ymin = -Inf, ymax = Inf, fill = "#BB5566", alpha = 0.6) +
+#   annotate("rect", xmin = 20, xmax = 24, ymin = -Inf, ymax = Inf, fill = "#004488", alpha = 0.6) +
+#   geom_bar(aes(y = (after_stat(count))/sum(after_stat(count))), fill = "white", col = NA, alpha = 0.9) +
+#   scale_y_continuous(labels = scales::percent) +
+#   scale_x_continuous(limits = c(0,24), expand = c(0,0)) +
+#   theme_light()  +
+#   ylab("Relative frequency of dives") +
+#   xlab("Hour of the day")
 
 b <- ggplot() +
   annotate("rect", xmin = 0, xmax = 6, ymin = 0, ymax = Inf, fill = "#004488", alpha = 0.6) +
@@ -137,9 +136,10 @@ b <- ggplot() +
 
 # Save plots:
 
-ggarrange(a, b, ncol = 2)
+# ggarrange(a, b, ncol = 2)
 
-ggsave("RFB_Diving_Plots/Dive_fig.png", width = 8, height = 4)
+b
+ggsave("RFB_Diving_Plots/Dive_fig.png", width = 5, height = 4)
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -147,8 +147,9 @@ ggsave("RFB_Diving_Plots/Dive_fig.png", width = 8, height = 4)
 
 # Max dive depth:
 summary(df.dives.depth$MaxDepth_m)
-# Info about this dive:
+# Info about this deep dive:
 df.dives.depth[which(df.dives.depth$MaxDepth_m == max(df.dives.depth$MaxDepth_m)),]
+sd(df.dives.depth$MaxDepth_m)
 
 # Pull out effect sizes:
 summary(depth.mod)
