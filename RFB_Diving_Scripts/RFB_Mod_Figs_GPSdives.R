@@ -124,19 +124,24 @@ nrow(df.dives)
 nlevels(unique(as.factor(paste(df.dives$BirdID, df.dives$TripID))))
 # N birds
 nlevels(as.factor(df.dives$BirdID))
-# min and max of dives per bout
+# min and max and mean of dives per bout
 summary(df.dives$N.Dives)
+sd(df.dives$N.Dives)
 
-# Min and max dist from colony that foraging took place at
+# Min and max and mean dist from colony that foraging took place at
 summary(df.dives$ColonyDist.km)
+# Also sd:
+sd(df.dives$ColonyDist.km)
 
 # Foraging bout duration stats:
 hist(df.dives$BoutDuration)
 summary(df.dives$BoutDuration)
+sd(df.dives$BoutDuration)
 
 # Inter-foraging bout distance stats:
 hist(df.dives$InterBoutDist.km)
 summary(df.dives$InterBoutDist.km)
+sd(df.dives$InterBoutDist.km, na.rm = T)
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
