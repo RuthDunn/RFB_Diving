@@ -137,11 +137,21 @@ sd(df.dives$ColonyDist.km)
 hist(df.dives$BoutDuration)
 summary(df.dives$BoutDuration)
 sd(df.dives$BoutDuration)
+# What % are < 3 min
+test <- df.dives %>%
+  mutate(calc = ifelse(df.dives$BoutDuration < 180, 1, NA)) %>%
+  na.omit()
+(nrow(test) * 100)/nrow(df.dives)
 
 # Inter-foraging bout distance stats:
 hist(df.dives$InterBoutDist.km)
 summary(df.dives$InterBoutDist.km)
 sd(df.dives$InterBoutDist.km, na.rm = T)
+# What % are < 2 km
+test2 <- df.dives %>%
+  mutate(calc = ifelse(df.dives$InterBoutDist.km < 2, 1, NA)) %>%
+  na.omit()
+(nrow(test2) * 100)/nrow(df.dives)
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
