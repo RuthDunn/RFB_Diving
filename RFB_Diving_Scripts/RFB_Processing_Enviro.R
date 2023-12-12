@@ -23,7 +23,7 @@ colnames(diego.garcia) = c('lon', 'lat')
 # Data portal: https://upwell.pfeg.noaa.gov/erddap/index.html
 
 # MODIS AQUA L3 SST THERMAL 4KM DAYTIME V2019.0
-sstInfo <- rerddap::info('nasa_jpl_3c05_f193_6ee5') # 8DAY
+sstInfo <- rerddap::info('erdMH1sstd8dayR20190SQ') # 8DAY
 # sstInfo <- rerddap::info('erdMH1sstdmdayR20190SQ') # Monthly
 sstInfo
 
@@ -51,9 +51,12 @@ for (i in 1:nrow(files)) {
   # Load data ####
   
   df.dives <- read_csv(paste0("RFB_Diving_Data/BIOT_AxyTrek_Processed/", files[i,], "_bout_stats.csv")) %>%
-    mutate(BirdID = i)
+    mutate(BirdID = i) %>%
+    dplyr::select(BirdID, TripID, BoutID, DateTime, Lat, Lon, ColonyDist.km)
   
-  df.gps <- read_csv(paste0("RFB_Diving_Data/BIOT_AxyTrek_Processed/", files[i,], "_gps_interp.csv"))
+  df.gps <- read_csv(paste0("RFB_Diving_Data/BIOT_AxyTrek_Processed/", files[i,], "_gps_interp.csv")) %>%
+    unique() %>%
+    dplyr::select(Bird, TripID, DateTime, Lat, Lon, Dist.km)
   
   # ~~~~~~~~~~~~~~~~~~~~~~~~
   
@@ -71,8 +74,8 @@ for (i in 1:nrow(files)) {
     # Extract current dive bout locations:
     tripj.divepoints <- subset(df.dives, TripID == unique(df.dives$TripID)[j])[,c("Lat", "Lon", "ColonyDist.km")] %>%
       mutate(Value = "Dive.Locs") %>%
-      rename(Y = 1, X = 2, Dist.km = ColonyDist.km) %>%
-      mutate(DiveNum = row_number()) %>%
+      rename(Y = Lat, X = Lon, Dist.km = ColonyDist.km) %>%
+      mutate(BoutNum = row_number()) %>%
       mutate(PointNum = 1)
         
     # Create dataframe of bird id, trip id and date of Trip j, & repeat 101 times:
@@ -95,7 +98,7 @@ for (i in 1:nrow(files)) {
     tripj.pspointsa <- as.data.frame(st_coordinates(tripj.pspointsa)[,c(1:3)]) %>%
       mutate(Value = "Trip.Locs") %>%
       rename(Dist.km = Z) %>%
-      mutate(DiveNum = rep(c(1:(n()/50)), each = 50)) %>%
+      mutate(BoutNum = rep(c(1:(n()/50)), each = 50)) %>%
       mutate(PointNum = rep(c(1:50), times = n()/50))
     # ~~~~~~~~~~~~~~~~~~~~~~~~
     
@@ -110,7 +113,7 @@ for (i in 1:nrow(files)) {
       mutate(Dist.km = distHaversine(round(c(diego.garcia[101,'lon'], diego.garcia[101,'lat']), digits = 3),
                                      cbind(X, Y))/1000) %>%
       mutate(Value = "Available.Locs") %>%
-      mutate(DiveNum = rep(c(1:(n()/50)), each = 50)) %>%
+      mutate(BoutNum = rep(c(1:(n()/50)), each = 50)) %>%
       mutate(PointNum = rep(c(1:50), times = n()/50))
     
     plot(tripj.pspointsb$X, tripj.pspointsb$Y, col= "green")
@@ -123,7 +126,7 @@ for (i in 1:nrow(files)) {
     # Extract the environmental data ####
     
     tripj.enviro <- cbind(tripj.info, rbind(tripj.divepoints, tripj.pspointsa, tripj.pspointsb)) %>%
-      mutate(SST = rxtracto(sstInfo, parameter = 'sst',
+      mutate(SST = rxtracto(sstInfo, parameter = 'sstMasked',
                             xcoord = X, ycoord = Y, tcoord = as.Date(DateTime),
                             xlen = .2, ylen = .2, progress_bar = TRUE)[[1]]) %>%
       mutate(Depth = rxtracto(bathyInfo, parameter = 'elevation',
