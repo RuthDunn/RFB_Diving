@@ -14,10 +14,25 @@ library(tidybayes) # to dig into model outputs
 library(grid) # for sharing axes across plots
 library(data.table) # for rbindlist() function
 # library(rnaturalearth) # to load the background world map
-# library(cowplot) # to inset the inset map
+library(cowplot) # to inset the inset map
 
 chagos = read_sf("RFB_Diving_Data/Chagos_Maps/chagos_maps/Chagos_v6_land_simple.shp")
 
+# For the inset plot:
+chagos_depth = st_read("RFB_Diving_Data/Chagos_Maps/chagos_maps/Chagos_v6.shp")
+chagos_depth$DEPTHLABEL = fct_relevel(chagos_depth$DEPTHLABEL, "land", "shallow", "variable", "deep")
+
+colonies <- read.csv("RFB_Diving_Data/Chagos_Maps/Colonies.csv", as.is = T) %>% filter(!Colony == "DG")
+
+BP <- colonies %>%
+  filter(Colony == "BP") %>%
+  dplyr::select(Long, Lat)
+
+EI <- colonies %>%
+  filter(Colony == "EI") %>%
+  dplyr::select(Long, Lat)
+
+# GPS tracks:
 files <- as.data.frame(list.files(path = "RFB_Diving_Data/BIOT_AxyTrek_Processed/", pattern = "*_gps.csv")) %>%
   separate(1, into = "files", sep = "_gps.csv")
 
@@ -125,18 +140,31 @@ map <- ggplot() +
   geom_point(data = df.dives, aes(x = Lon, y = Lat, col = Year, size = N.Dives), alpha = 0.6) +
   scale_size_binned(name = "Dives per bout", range = c(0.1,5)) +
   geom_sf(data = chagos, fill = "#000000", col = "#000000") +
-  theme_light() %+replace% theme(legend.position="bottom") +
-  coord_sf(default_crs = sf::st_crs(4724), expand = T) +
+  geom_point(data = colonies[3,], aes(x = Long, y = Lat), col = "#DDAA33", size = 2) +
+  theme_light() %+replace% theme(legend.position="bottom",
+                                 panel.grid = element_blank()) +
   ylab("Latitude") +
   xlab("Longitude") +
-  annotation_scale(location = "br", width_hint = 0.5)
+  annotation_scale(location = "tr", width_hint = 0.5, style = "ticks")
 
 map
 
-# mini_map <- ggplot()+
-#   geom_sf(data = worldmap, fill = "#000000", col = "#000000") +
-#   geom_sf(data = chagos.point, col = "#BB5566", size = 4) +
-#   theme_light()
+mini.map <- ggplot() + 
+  scale_x_continuous(limits = c(BP$Long-0.1, BP$Long+0.1), expand = c(0,0))+
+  scale_y_continuous(limits = c(-7.48, -7.21), expand = c(0,0))+
+  geom_sf(data = filter(chagos_depth, DEPTHLABEL == c("land")), inherit.aes = FALSE, fill = "#000000", col = "grey20", lwd = 0.6)+
+  geom_point(data = colonies[c(3:4),], aes(x = Long, y = Lat), col = "#DDAA33", fill = "#DDAA33", shape = c(22,24), size = 2) +
+  theme_light() + theme(axis.ticks = element_blank(),
+                        axis.title = element_blank(), axis.text = element_blank(),
+                        panel.grid = element_blank()) +
+  theme(panel.border = element_rect(fill = NA))+
+  annotation_scale(location = "br", style = "ticks")
+
+inset_map = ggdraw() +
+  draw_plot(map) +
+  draw_plot(mini.map, x = 0.65, y = 0.24, width = 0.35, height = 0.35)
+
+inset_map
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -262,7 +290,7 @@ dist.plots <- annotate_figure(dist.plots, bottom = textGrob("Distance from colon
 
 # Save up plots ####
 
-ggarrange(map,
+ggarrange(inset_map,
           ggarrange(dur.plots, dist.plots, nrow = 2, heights = c(1.01, 1)),
           ncol = 2,
           widths = c(2,1))
