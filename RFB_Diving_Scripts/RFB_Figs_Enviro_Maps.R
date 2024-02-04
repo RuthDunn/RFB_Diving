@@ -32,7 +32,7 @@ chagos <- read_sf("RFB_Diving_Data/Chagos_Maps/chagos_maps/Chagos_v6_land_simple
 
 # Bird data:
 
-dat <- read_csv("RFB_Diving_Data/Habitat_Modelling/AllBirds_Bouts_EnviroData.csv") %>%
+dat <- read_csv("RFB_Diving_Data/BIOT_AxyTrek_Processed/AllBirds_Bouts_EnviroData_new.csv") %>%
   dplyr::select(!...1) %>%
   unique() %>%
   filter(Value != "Available.Locs") %>%
@@ -174,7 +174,7 @@ library(brms) # for extracting brms model outputs
 
 # Load the raw data so that we can un-scale and un-centre the variables
 
-dat <- read_csv("RFB_Diving_Data/Habitat_Modelling/AllBirds_Bouts_EnviroData.csv") %>%
+dat <- read_csv("RFB_Diving_Data/BIOT_AxyTrek_Processed/AllBirds_Bouts_EnviroData_new.csv") %>%
   dplyr::select(!...1) %>%
   unique()
 
@@ -187,7 +187,7 @@ sd.dep <- sd(dat$Depth)
 
 # Load the final model:
 
-load("RFB_Diving_Data/Habitat_Modelling/Track_vs_Available_Model.rds")
+load("RFB_Diving_Data/Habitat_Modelling/Track_vs_Available_Model_new.rds")
 track.mod <- mod.depth.chlor.sst
 load("RFB_Diving_Data/Habitat_Modelling/Track_vs_Dive_Model.rds")
 dive.mod <- mod.depth.chlor.sst
@@ -285,7 +285,7 @@ model.plot
 g <- ggarrange(model.plot, NULL, map.plot,
           nrow = 3, heights = c(1.5, -0.05, 1))
 
-ggsave("RFB_Diving_Plots/Habitat_fig_map.png", plot = g, width = 8, height = 9)
+ggsave("RFB_Diving_Plots/Habitat_fig_map_new.png", plot = g, width = 8, height = 9)
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
