@@ -10,14 +10,14 @@ library(ROCR) # for area under a curve calculations
 # Scale and center all variables
 # Create new TripID variable that is unique to the particular bird ("BirdTrip")
 
-dat <- read_csv("RFB_Diving_Data/Habitat_Modelling/AllBirds_Bouts_EnviroData.csv") %>%
+dat <- read_csv("RFB_Diving_Data/BIOT_AxyTrek_Processed/AllBirds_Bouts_EnviroData_new.csv") %>%
   dplyr::select(!...1) %>%
   mutate(sc.SST = scale(SST)[,1]) %>%
   mutate(sc.Chlor = scale(Chlor)[,1]) %>%
   mutate(sc.Depth = scale(Depth)[,1]) %>%
   mutate(sc.Dist = scale(Dist.km)[,1]) %>%
   mutate(BirdTrip = paste(BirdID, TripID, sep = ".")) %>%
-  mutate(BirdTripDive = paste(BirdID, TripID, DiveNum, sep = "."))
+  mutate(BirdTripDive = paste(BirdID, TripID, BoutNum, sep = "."))
   
 head(dat)
 
@@ -60,7 +60,7 @@ auc.vals <- NULL
 
 for(i in c(1, 2, 3, 4, 5, 10, 15, 10, 25, 30, 40, 50)){
   
-  # i = 2
+  # i = 1
   
   # Subset data to include a certain number of points and weight the points by this value
   trip.dati <- trip.dat %>%
@@ -93,7 +93,7 @@ for(i in c(1, 2, 3, 4, 5, 10, 15, 10, 25, 30, 40, 50)){
   auc.val <- cbind(i, AUC, R2, DivePoints)
   auc.vals <- rbind(auc.vals, auc.val)
 
-  write_csv(as.data.frame(auc.vals), ("RFB_Diving_Data/Habitat_Modelling/Track_vs_Available_random_point_AUCs.csv"))
+  write_csv(as.data.frame(auc.vals), ("RFB_Diving_Data/Habitat_Modelling/Track_vs_Available_random_point_AUCs_new.csv"))
   
 }
 
@@ -104,7 +104,7 @@ for(i in c(1, 2, 3, 4, 5, 10, 15, 10, 25, 30, 40, 50)){
 auc.vals.ms <- NULL
 
 # Subset data to include a certain number of points and weight the points by this value
-i = 40
+i = 5
 trip.dati <- trip.dat %>%
   filter(PointNum == 1 & Value == 0 | PointNum <= i & Value == 1) %>%
   mutate(Weight = ifelse(Value == 1, 1, i))
@@ -132,7 +132,7 @@ Covariates <- "Chlor and Depth and SST"
 auc.val <- cbind(AUC, R2, Covariates)
 auc.vals.ms <- rbind(auc.vals.ms, auc.val)
 
-write_csv(as.data.frame(auc.vals.ms), ("RFB_Diving_Data/Habitat_Modelling/Track_vs_Available_model_selection_AUCs.csv"))
+write_csv(as.data.frame(auc.vals.ms), ("RFB_Diving_Data/Habitat_Modelling/Track_vs_Available_model_selection_AUCs_new.csv"))
 
 # Run model 2:
 mod.depth.chlor <- brm(Value | weights(Weight) ~ 0 + sc.Dist + sc.Chlor + sc.Depth +
@@ -153,7 +153,7 @@ Covariates <- "Chlor and Depth"
 auc.val <- cbind(AUC, R2, Covariates)
 auc.vals.ms <- rbind(auc.vals.ms, auc.val)
 
-write_csv(as.data.frame(auc.vals.ms), ("RFB_Diving_Data/Habitat_Modelling/Track_vs_Available_model_selection_AUCs.csv"))
+write_csv(as.data.frame(auc.vals.ms), ("RFB_Diving_Data/Habitat_Modelling/Track_vs_Available_model_selection_AUCs_new.csv"))
 
 # Run model 3:
 mod.depth.sst <- brm(Value | weights(Weight) ~ 0 + sc.Dist + sc.SST + sc.Depth +
@@ -174,7 +174,7 @@ Covariates <- "SST and Depth"
 auc.val <- cbind(AUC, R2, Covariates)
 auc.vals.ms <- rbind(auc.vals.ms, auc.val)
 
-write_csv(as.data.frame(auc.vals.ms), ("RFB_Diving_Data/Habitat_Modelling/Track_vs_Available_model_selection_AUCs.csv"))
+write_csv(as.data.frame(auc.vals.ms), ("RFB_Diving_Data/Habitat_Modelling/Track_vs_Available_model_selection_AUCs_new.csv"))
 
 # Run model 4:
 mod.chlor.sst <- brm(Value | weights(Weight) ~ 0 + sc.Dist + sc.SST + sc.Chlor +
@@ -195,7 +195,7 @@ Covariates <- "SST and Chlor"
 auc.val <- cbind(AUC, R2, Covariates)
 auc.vals.ms <- rbind(auc.vals.ms, auc.val)
 
-write_csv(as.data.frame(auc.vals.ms), ("RFB_Diving_Data/Habitat_Modelling/Track_vs_Available_model_selection_AUCs.csv"))
+write_csv(as.data.frame(auc.vals.ms), ("RFB_Diving_Data/Habitat_Modelling/Track_vs_Available_model_selection_AUCs_new.csv"))
 
 # Run model 5:
 mod.chlor <- brm(Value | weights(Weight) ~ 0 + sc.Dist + sc.Chlor +
@@ -216,7 +216,7 @@ Covariates <- "Chlor"
 auc.val <- cbind(AUC, R2, Covariates)
 auc.vals.ms <- rbind(auc.vals.ms, auc.val)
 
-write_csv(as.data.frame(auc.vals.ms), ("RFB_Diving_Data/Habitat_Modelling/Track_vs_Available_model_selection_AUCs.csv"))
+write_csv(as.data.frame(auc.vals.ms), ("RFB_Diving_Data/Habitat_Modelling/Track_vs_Available_model_selection_AUCs_new.csv"))
 
 # Run model 6:
 mod.sst <- brm(Value | weights(Weight) ~ 0 + sc.Dist + sc.SST +
@@ -237,13 +237,13 @@ Covariates <- "SST"
 auc.val <- cbind(AUC, R2, Covariates)
 auc.vals.ms <- rbind(auc.vals.ms, auc.val)
 
-write_csv(as.data.frame(auc.vals.ms), ("RFB_Diving_Data/Habitat_Modelling/Track_vs_Available_model_selection_AUCs.csv"))
+write_csv(as.data.frame(auc.vals.ms), ("RFB_Diving_Data/Habitat_Modelling/Track_vs_Available_model_selection_AUCs_new.csv"))
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 # Check out the top, best model ####
 
-save(file="RFB_Diving_Data/Habitat_Modelling/Track_vs_Available_Model.rds", list="mod.depth.chlor.sst")
+save(file="RFB_Diving_Data/Habitat_Modelling/Track_vs_Available_Model_new.rds", list="mod.depth.chlor.sst")
 
 plot(mod.depth.chlor.sst)
 pp_check(mod.depth.chlor.sst)

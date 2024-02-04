@@ -44,6 +44,29 @@ all.enviro <- NULL
 
 k = 50 # (The number of random points to extract)
 
+# Go through all the birds to get a pop-level MCP ####
+
+df.all.gps <- NULL
+
+for (i in 1:nrow(files)) {
+  
+  # i = 2
+  
+  df.gps <- read_csv(paste0("RFB_Diving_Data/BIOT_AxyTrek_Processed/", files[i,], "_gps_interp.csv")) %>%
+    unique() %>%
+    dplyr::select(Bird, TripID, DateTime, Lat, Lon, Dist.km)
+  
+  df.all.gps <- rbind(df.all.gps, df.gps)
+  
+}
+
+df.all.mcp <- mcp(SpatialPoints(coords = cbind(df.all.gps$Lon, df.all.gps$Lat)), percent = 100)
+
+plot(df.all.mcp)
+points(df.all.gps$Lon, df.all.gps$Lat, col= "green")
+
+# Extract available enviro data
+
 for (i in 1:nrow(files)) {
   
   # i = 2
@@ -64,7 +87,7 @@ for (i in 1:nrow(files)) {
   
   # Extract k times the number of points as there are dive points for each trip from:
   # a) The dive track &
-  # b) The MCP.
+  # b) The pop-level MCP
   
   # Run through each trip that has dives in it:
   for (j in 1:length(unique(df.dives$TripID))) {
@@ -104,10 +127,7 @@ for (i in 1:nrow(files)) {
     
     # b)  MCP points ####
     
-    # Create 95% MCP
-    
-    tripj.pspointsb <- st_sample(x = st_as_sf(mcp(SpatialPoints(coords = cbind(tripj$Lon, tripj$Lat)), percent = 100)),
-    size = nrow(tripj.divepoints)*k)
+    tripj.pspointsb <- st_sample(x = st_as_sf(df.all.mcp), size = nrow(tripj.divepoints)*k)
 
     tripj.pspointsb <- as.data.frame(st_coordinates(tripj.pspointsb)) %>%
       mutate(Dist.km = distHaversine(round(c(diego.garcia[101,'lon'], diego.garcia[101,'lat']), digits = 3),
@@ -149,4 +169,4 @@ test <- unique(all.enviro)
 
 summary(all.enviro)
 
-write.csv(all.enviro, "RFB_Diving_Data/BIOT_AxyTrek_Processed/AllBirds_Bouts_EnviroData.csv")
+write.csv(all.enviro, "RFB_Diving_Data/BIOT_AxyTrek_Processed/AllBirds_Bouts_EnviroData_new.csv")
