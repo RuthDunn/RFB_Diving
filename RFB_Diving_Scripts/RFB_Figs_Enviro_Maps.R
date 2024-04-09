@@ -239,8 +239,8 @@ ce.mod <- bind_rows(bind_rows(plot(conditional_effects(track.mod, effects = "sc.
 facet.names <- as_labeller(c("Depth" = "Bathymetry (m)",
                              "Chlor" = "Chlorophyll-a concentration (mg m\u207B\u00B3)",
                              "SST" = "Sea surface temperature (\u00B0C)",
-                             "zDive" = "Dive vs traversed",
-                             "Track" = "Traversed vs available"))
+                             "zDive" = "Dive vs traversed; AUC = 0.75",
+                             "Track" = "Traversed vs available; AUC = 0.73"))
 
 plot.dat <- rbind(dat %>%
                     dplyr::select(c("Value", "SST", "Depth", "Chlor")) %>%
@@ -267,7 +267,7 @@ model.plot <- ggplot() +
   facet_grid(Model~Variable, scales = "free", labeller = facet.names) +
   theme_light() %+replace% theme(legend.position = "none",
                                  strip.background = element_rect(fill = "white", colour = "grey70"),
-                                 strip.text = element_text(colour = "black", size = rel(0.9), hjust = 0.05),
+                                 strip.text = element_text(colour = "black", size = rel(1), hjust = 0.05),
                                  panel.grid.minor = element_blank(),
                                  panel.grid.major = element_blank(),
                                  axis.title.x = element_blank()) +
